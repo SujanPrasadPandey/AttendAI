@@ -8,7 +8,8 @@ export default {
     extend: {
       colors: {
         'mainBox': '#232539',
-        'primary': '#A2AFF9'
+        'primary': '#A2AFF9',
+        'textPrimary': '#CDD6F4',
       },
       fontFamily: {
         plaster: ["'Plaster', sans-serif"],

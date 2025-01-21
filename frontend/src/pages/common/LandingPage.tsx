@@ -1,6 +1,8 @@
 import NavbarLandingPage from "@/components/landingPage/NavbarLandingPage";
 import Hero from "@/components/landingPage/Hero";
 import Features from "@/components/landingPage/Features";
+import ContactUs from "@/components/landingPage/ContactUs";
+import Footer from "@/components/landingPage/Footer";
 
 
 const LandingPage = () => {
@@ -11,9 +13,8 @@ const LandingPage = () => {
         <Hero />
       </div>
       <Features />
-      {/* 
       <ContactUs />
-      <Footer /> */}
+      <Footer />
     </>
   );
 };
