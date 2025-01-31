@@ -1,0 +1,75 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node.js dependencies
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Virtual environment
+venv/
+venv/*
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.mypy_cache/
+coverage/
+*.cover
+.hypothesis/
+*.pytest_cache/
+
+# Django specific
+db.sqlite3
+media/
+staticfiles/
+static/
+*.sqlite3
+*.db
+
+# Migrations
+**/migrations/*.pyc
+**/migrations/__pycache__/
+**/migrations/*_initial.py
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Docker
+data/db
+*.pid
+*.sock
+docker-compose.override.yml
+
+# React & TypeScript
+.vite
+.vitepress
+.cache/
+pnpm-lock.yaml
+build/
+.DS_Store
+
+# Linting & Testing
+eslint.cache
+jest/
+coverage/

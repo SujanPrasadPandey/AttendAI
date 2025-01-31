@@ -1,5 +1,5 @@
-import ContactUs from "@/components/landingPage/ContactUs"
-import NavbarLandingPage from "@/components/landingPage/NavbarLandingPage"
+import ContactUs from "../../components/landingPage/ContactUs"
+import NavbarLandingPage from "../../components/landingPage/NavbarLandingPage"
 
 
 const SignUp = () => {

@@ -1,6 +1,6 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import supabase from "@/utils/supabase";
+import supabase from "../../utils/supabase";
 
 const Dashboard: React.FC = () => {
   const location = useLocation();

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import supabase from "@/utils/supabase";
-import NavbarLandingPage from "@/components/landingPage/NavbarLandingPage";
+import supabase from "../../utils/supabase";
+import NavbarLandingPage from "../../components/landingPage/NavbarLandingPage";
 import { FaUser, FaLock } from "react-icons/fa";
 
 const SignIn: React.FC = () => {

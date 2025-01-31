@@ -1,4 +1,3 @@
-import imageLinks from "@/imageLinks";
 import { useNavigate } from "react-router-dom";
 
 const Hero: React.FC = () => {
@@ -48,7 +47,7 @@ const Hero: React.FC = () => {
       {/* Image at the Bottom */}
       <div className="flex justify-center items-end h-full mt-10 sm:mt-12">
         <img
-          src={imageLinks.landingPageDashboard}
+          src="/landingPageDashboard.png"
           alt="Dashboard overview"
           className="w-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl"
           loading="lazy"

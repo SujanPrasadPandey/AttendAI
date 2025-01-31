@@ -1,38 +1,38 @@
 import React from 'react';
-import imageLinks from "@/imageLinks";
 
 const features = [
     {
-        icon: imageLinks.landingPageFeatures_smarter,
+        icon: "/landingPageFeatures_smarter.png", 
         title: 'Smarter Attendance',
         description: 'Leverage advanced facial recognition technology for quick, precise, and hassle-free attendance tracking, minimizing errors and manual effort.'
     },
     {
-        icon: imageLinks.landingPageFeatures_insight,
+        icon: "/landingPageFeatures_insight.png",
         title: 'Instant Insights',
         description: 'Stay updated with real-time attendance data and notifications, empowering teachers and admins to make informed decisions instantly.'
     },
     {
-        icon: imageLinks.landingPageFeatures_leave,
+        icon: "/landingPageFeatures_leave.png",
         title: 'Simplified Leave Requests',
         description: 'Easily manage student leave requests with a streamlined approval process, reducing paperwork and administrative overhead.'
     },
     {
-        icon: imageLinks.landingPageFeatures_tailored,
+        icon: "/landingPageFeatures_tailored.png",
         title: 'Tailored User Access',
         description: 'Provide dedicated dashboards for teachers, students, parents, and admins, ensuring everyone gets the right tools and information.'
     },
     {
-        icon: imageLinks.landingPageFeatures_secure,
+        icon: "/landingPageFeatures_secure.png",
         title: 'Secure by Design',
         description: 'Keep sensitive attendance data safe with robust encryption and privacy protocols, protecting schools and students from breaches.'
     },
     {
-        icon: imageLinks.landingPageFeatures_analytic,
+        icon: "/landingPageFeatures_analytic.png",
         title: 'Meaningful Analytics',
         description: 'Unlock valuable insights into attendance trends and student behavior with powerful analytics, helping improve engagement and outcomes.'
     },
 ];
+
 
 const Features: React.FC = () => {
     return (
