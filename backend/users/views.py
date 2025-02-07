@@ -16,12 +16,13 @@ from django.utils.encoding import force_str
 from rest_framework.permissions import IsAuthenticated
 from django.core.mail import send_mail
 from django.conf import settings
-
-
+from rest_framework.generics import UpdateAPIView
+from .serializers import EmailUpdateSerializer
 
 
 CustomUser = get_user_model()
 signer = TimestampSigner()
+
 
 class CreateUserView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -30,17 +31,10 @@ class CreateUserView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        # If the user provided an email, send a verification email.
+        
         if user.email:
-            request = self.request  # needed to build absolute URL
+            request = self.request
             send_verification_email(user, request)
-
-
-class UserListView(generics.ListAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [AllowAny]
-
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
@@ -51,7 +45,6 @@ class VerifyEmailView(APIView):
             return Response({"detail": "Token is required."},
                             status=status.HTTP_400_BAD_REQUEST)
         try:
-            # Allow tokens to be valid for 1 day (86400 seconds)
             user_pk = signer.unsign(token, max_age=86400)
             user = CustomUser.objects.get(pk=user_pk)
             user.email_verified = True
@@ -83,7 +76,6 @@ class PasswordResetRequestView(APIView):
         token_generator = PasswordResetTokenGenerator()
         token = token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        # Build the password reset confirmation URL.
         relative_link = reverse("password-reset-confirm")
         reset_url = request.build_absolute_uri(f"{relative_link}?uid={uid}&token={token}")
         subject = "Password Reset Request"
@@ -144,3 +136,21 @@ class PasswordChangeView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"detail": "Password has been changed successfully."})
+
+
+class UpdateEmailView(UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = EmailUpdateSerializer
+
+    def get_object(self):
+        return self.request.user
+
+    def perform_update(self, serializer):
+        user = self.get_object()
+        old_email = user.email
+        updated_user = serializer.save()
+
+        if updated_user.email and updated_user.email != old_email:
+            updated_user.email_verified = False
+            updated_user.save()
+            send_verification_email(updated_user, self.request)

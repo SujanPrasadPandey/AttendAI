@@ -21,3 +21,14 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = CustomUser.objects.create_user(**validated_data)
         return user
+
+
+class EmailUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['email']
+
+    def validate_email(self, value):
+        if value and CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
