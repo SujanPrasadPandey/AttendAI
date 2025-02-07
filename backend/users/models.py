@@ -1,9 +1,10 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-# Create your models here.
-class TestTable(models.Model):
-    name = models.CharField()
-    age = models.IntegerField()
+# class CustomUser(AbstractUser):
+#     email_verified = models.BooleanField(default=False)
 
-    def __str__(self):
-        return self.name
+class CustomUser(AbstractUser):
+    email = models.EmailField("email address", blank=True, null=True, unique=True)
+    email_verified = models.BooleanField(default=False)
+    
