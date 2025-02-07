@@ -73,3 +73,5 @@ build/
 eslint.cache
 jest/
 coverage/
+
+data/
