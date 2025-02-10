@@ -1,24 +1,23 @@
-from rest_framework import generics
-from .serializers import UserSerializer
-from rest_framework.permissions import AllowAny
+from rest_framework import generics, viewsets
+from .serializers import (
+    UserSerializer,
+    EmailUpdateSerializer,
+    AdminUserSerializer,
+)
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from .utils import send_verification_email
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.urls import reverse
-from django.utils.http import urlsafe_base64_decode
-from django.utils.encoding import force_str
-from rest_framework.permissions import IsAuthenticated
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.generics import UpdateAPIView
-from .serializers import EmailUpdateSerializer
-
 
 CustomUser = get_user_model()
 signer = TimestampSigner()
@@ -31,10 +30,9 @@ class CreateUserView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        
         if user.email:
-            request = self.request
-            send_verification_email(user, request)
+            send_verification_email(user, self.request)
+
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
@@ -154,3 +152,26 @@ class UpdateEmailView(UpdateAPIView):
             updated_user.email_verified = False
             updated_user.save()
             send_verification_email(updated_user, self.request)
+
+
+class AdminUserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminUser]
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        if user.email:
+            user.email_verified = False
+            user.save()
+            send_verification_email(user, self.request)
+
+    def perform_update(self, serializer):
+        old_email = serializer.instance.email
+        updated_user = serializer.save()
+        if "email" in serializer.validated_data:
+            new_email = serializer.validated_data.get("email")
+            if new_email and new_email != old_email:
+                updated_user.email_verified = False
+                updated_user.save()
+                send_verification_email(updated_user, self.request)

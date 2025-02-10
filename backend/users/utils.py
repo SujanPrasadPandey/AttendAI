@@ -7,7 +7,7 @@ signer = TimestampSigner()
 
 def send_verification_email(user, request):
     token = signer.sign(user.pk)
-    relative_link = reverse("verify-email")
+    relative_link = reverse("users:verify-email")
     verify_url = request.build_absolute_uri(f"{relative_link}?token={token}")
     subject = "Verify your email"
     message = (
