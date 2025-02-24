@@ -1,36 +1,40 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import supabase from "../../utils/supabase";
 
 const Dashboard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  // Retrieve the username from location state or local storage
+  const initialUsername =
+    location.state?.username || localStorage.getItem("username");
+  const [username, setUsername] = useState<string | null>(initialUsername);
 
-  const { email } = location.state as { email: string };
-
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      // Redirect to login page
+  useEffect(() => {
+    if (!username) {
       navigate("/signin");
-    } catch (error) {
-      console.error("Error logging out:", error.message);
     }
+  }, [username, navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("username");
+    navigate("/signin");
   };
+
+  if (!username) {
+    return null;
+  }
 
   return (
     <div className="flex h-screen">
-      {/* Nav bar area */}
       <div className="Navbar w-1/6 justify-center items-center flex">
         <p>navbar</p>
       </div>
 
-      {/* Main Content Box */}
       <div className="bg-mainBox flex-1 flex p-3 m-2 rounded-md space-x-5">
         <div className="w-[194px] h-[254px] bg-[#385167] rounded-md flex justify-center items-center">
-          <p>{email}</p>
+          <p>{username}</p>
         </div>
         <div className="flex flex-col justify-center items-center space-y-4">
           <button

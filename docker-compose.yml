@@ -1,27 +1,20 @@
+version: "3.8"
+
 services:
   db:
-    image: postgres:17-bookworm
+    image: postgres:17.3-alpine3.21
     container_name: attendai-db
     ports:
-      - '5432:5432'
+      - "5432:5432"
     environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
     volumes:
-      - ./data/db:/var/lib/postgresql/data/
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: attendai-frontend
-    ports:
-      - '5173:5173'
-    volumes:
-      - ./frontend:/app/frontend
-    depends_on:
-      - backend
+      - type: bind
+        source: ./data/db
+        target: /var/lib/postgresql/data
+        consistency: delegated
 
   backend:
     build:
@@ -29,13 +22,36 @@ services:
       dockerfile: Dockerfile
     container_name: attendai-backend
     environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
     ports:
-      - '8000:8000'
+      - "8000:8000"
     volumes:
-      - ./backend:/app/backend
+      - type: bind
+        source: ./backend
+        target: /app/backend
+        consistency: delegated
     depends_on:
       - db
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: attendai-frontend
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "5173:5173"
+    volumes:
+      - type: bind
+        source: ./frontend
+        target: /app
+        consistency: delegated
+      - node_modules_frontend:/app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  node_modules_frontend:

@@ -14,10 +14,11 @@ from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.urls import reverse
+# from django.urls import reverse
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.generics import UpdateAPIView
+import os
 
 CustomUser = get_user_model()
 signer = TimestampSigner()
@@ -74,8 +75,13 @@ class PasswordResetRequestView(APIView):
         token_generator = PasswordResetTokenGenerator()
         token = token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        relative_link = reverse("password-reset-confirm")
-        reset_url = request.build_absolute_uri(f"{relative_link}?uid={uid}&token={token}")
+
+        # relative_link = reverse("users:password-reset-confirm")
+        # reset_url = request.build_absolute_uri(f"{relative_link}?uid={uid}&token={token}")
+
+        frontend_url = os.getenv("FRONTEND_URL") 
+        reset_url = f"{frontend_url}/reset-password-confirm/?uid={uid}&token={token}"
+
         subject = "Password Reset Request"
         message = (
             f"Hi {user.username},\n\n"

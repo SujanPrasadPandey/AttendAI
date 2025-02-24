@@ -1,24 +1,17 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import supabase from "../../utils/supabase";
 import NavbarLandingPage from "../../components/landingPage/NavbarLandingPage";
 import { FaUser, FaLock } from "react-icons/fa";
 
 const SignIn: React.FC = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Simple email regex
-    return emailRegex.test(email);
-  };
-
   const handleSignIn = async () => {
-    // Validate input
-    if (!validateEmail(email)) {
-      setError("Invalid email format.");
+    if (username.trim() === "") {
+      setError("Username cannot be empty.");
       return;
     }
     if (password.trim() === "") {
@@ -26,16 +19,29 @@ const SignIn: React.FC = () => {
       return;
     }
 
-    // Call Supabase API
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setError(error.message);
-    } else if (data?.user) {
-      setError("");
-      navigate("/dashboard", { state: { email: data.user.email } });
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      const response = await fetch(`${backendUrl}/api/users/token/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem("access_token", data.access);
+        localStorage.setItem("refresh_token", data.refresh);
+        localStorage.setItem("username", username);
+        setError("");
+        navigate("/dashboard", { state: { username } });
+      } else {
+        const errData = await response.json();
+        setError(errData.detail || "Sign in failed.");
+      }
+    } catch (err) {
+      setError("Network error, please try again.");
     }
   };
 
@@ -48,22 +54,26 @@ const SignIn: React.FC = () => {
   return (
     <div className="bg-[#232539] min-h-screen flex flex-col">
       <NavbarLandingPage />
-
       <div className="bg-[#1E1E2E] mt-10 mx-5 md:mx-auto w-full max-w-3xl p-8 rounded-lg shadow-lg">
-        <h1 className="text-[#CDD6F4] font-inter font-bold text-4xl mb-8">Sign In</h1>
+        <h1 className="text-[#CDD6F4] font-inter font-bold text-4xl mb-8">
+          Sign In
+        </h1>
 
         <div className="mb-6">
-          <label htmlFor="email" className="text-[#CDD6F4] font-inter text-sm block mb-2">
-            Email
+          <label
+            htmlFor="username"
+            className="text-[#CDD6F4] font-inter text-sm block mb-2"
+          >
+            Username
           </label>
           <div className="relative">
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={handleKeyDown} // Trigger on Enter key
-              placeholder="Enter your email..."
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter your username..."
               className="w-full h-[40px] pl-10 bg-[#292E44] text-[#CDD6F4] border border-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-[#89B5FA]"
             />
             <span className="absolute left-3 top-[50%] translate-y-[-50%] text-[#CDD6F4]">
@@ -73,7 +83,10 @@ const SignIn: React.FC = () => {
         </div>
 
         <div className="mb-6">
-          <label htmlFor="password" className="text-[#CDD6F4] font-inter text-sm block mb-2">
+          <label
+            htmlFor="password"
+            className="text-[#CDD6F4] font-inter text-sm block mb-2"
+          >
             Password
           </label>
           <div className="relative">
@@ -82,7 +95,7 @@ const SignIn: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown} // Trigger on Enter key
+              onKeyDown={handleKeyDown}
               placeholder="Enter your password..."
               className="w-full h-[40px] pl-10 bg-[#292E44] text-[#CDD6F4] border border-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-[#89B5FA]"
             />
@@ -93,8 +106,11 @@ const SignIn: React.FC = () => {
         </div>
 
         <div className="mb-6 flex justify-between items-center">
-          <a href="#" className="text-[#89B5FA] font-inter text-sm underline">
-            Forgot password
+          <a
+            href="/forgot-password"
+            className="text-[#89B5FA] font-inter text-sm underline"
+          >
+            Forgot password?
           </a>
         </div>
 
@@ -106,9 +122,7 @@ const SignIn: React.FC = () => {
         </button>
 
         {error && (
-          <p className="text-[#F38BA8] text-sm text-center mt-4">
-            {error}
-          </p>
+          <p className="text-[#F38BA8] text-sm text-center mt-4">{error}</p>
         )}
       </div>
     </div>

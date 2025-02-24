@@ -1,14 +1,20 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
-from django.urls import reverse
+# from django.urls import reverse
+import os
 
 signer = TimestampSigner()
 
 def send_verification_email(user, request):
     token = signer.sign(user.pk)
-    relative_link = reverse("users:verify-email")
-    verify_url = request.build_absolute_uri(f"{relative_link}?token={token}")
+
+    # relative_link = reverse("users:verify-email")
+    # verify_url = request.build_absolute_uri(f"{relative_link}?token={token}")
+
+    frontend_url = os.getenv("FRONTEND_URL")
+    verify_url = f"{frontend_url}/verify-email/?token={token}"
+
     subject = "Verify your email"
     message = (
         f"Hi {user.username},\n\n"
