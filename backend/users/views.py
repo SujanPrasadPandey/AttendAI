@@ -62,6 +62,20 @@ class VerifyEmailView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
 
+class ResendVerificationEmailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.email_verified:
+            return Response({"detail": "Email is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            send_verification_email(user, request)
+            return Response({"detail": "Verification email sent."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": "Error sending email: " + str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
 

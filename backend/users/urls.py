@@ -9,6 +9,7 @@ from .views import (
     AdminUserViewSet,
     UserProfileView,
     ProfilePictureUploadView,
+    ResendVerificationEmailView,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
@@ -18,6 +19,7 @@ app_name = 'users'
 urlpatterns = [
     path('register/', CreateUserView.as_view(), name="register"),
     path('verify-email/', VerifyEmailView.as_view(), name="verify-email"),
+    path('resend-verification-email/', ResendVerificationEmailView.as_view(), name="resend-verification-email"),
 
     path('request-reset/', PasswordResetRequestView.as_view(), name="password-reset-request"),
     path('reset-password-confirm/', PasswordResetConfirmView.as_view(), name="password-reset-confirm"),

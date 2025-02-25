@@ -6,6 +6,7 @@ import ForgotPassword from "./pages/common/ForgotPassword";
 import Dashboard from "./pages/common/Dashboard";
 import ResetPassword from "./pages/common/ResetPassword";
 import VerifyEmail from "./pages/common/VerifyEmail";
+import ProfileSettings from "./pages/common/ProfileSettings";
 
 const App = () => {
   return (
@@ -18,6 +19,7 @@ const App = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/reset-password-confirm" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/profile" element={<ProfileSettings />} />
       </Routes>
     </Router>
   );
