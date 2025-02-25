@@ -1,12 +1,17 @@
+import os
 from rest_framework import generics, viewsets
 from .serializers import (
     UserSerializer,
     EmailUpdateSerializer,
     AdminUserSerializer,
+    UserProfileSerializer,
+)
+from .utils import (
+    send_verification_email,
+    compress_image
 )
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
-from .utils import send_verification_email
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -18,7 +23,8 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.generics import UpdateAPIView
-import os
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.core.files.storage import default_storage
 
 CustomUser = get_user_model()
 signer = TimestampSigner()
@@ -181,3 +187,58 @@ class AdminUserViewSet(viewsets.ModelViewSet):
                 updated_user.email_verified = False
                 updated_user.save()
                 send_verification_email(updated_user, self.request)
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+
+class ProfilePictureUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        file_obj = request.FILES.get("profile_picture")
+        if not file_obj:
+            return Response({"detail": "No file provided."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        allowed_extensions = ['.jpg', '.jpeg', '.png']
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        if ext not in allowed_extensions:
+            return Response(
+                {"detail": "Unsupported file type. Only JPG and PNG files are allowed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            compressed_file = compress_image(file_obj)
+        except Exception as e:
+            return Response(
+                {"detail": "Error processing image: " + str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = request.user
+
+        if user.profile_picture:
+            try:
+                default_storage.delete(user.profile_picture.name)
+            except Exception as e:
+                pass
+
+        filename = f"profile_pictures/{user.id}_{compressed_file.name}"
+        file_path = default_storage.save(filename, compressed_file)
+        file_url = default_storage.url(file_path)
+
+        user.profile_picture = file_path
+        user.save()
+
+        return Response({
+            "detail": "Profile picture uploaded.",
+            "url": request.build_absolute_uri(file_url)
+        }, status=status.HTTP_200_OK)

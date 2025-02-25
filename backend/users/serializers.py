@@ -24,6 +24,22 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "email_verified",
+            "phone_number",
+            "profile_picture",
+        ]
+        read_only_fields = ["id", "email_verified", "username", "profile_picture"]
+
+
 class EmailUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
@@ -52,6 +68,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'is_staff',
             'first_name',
             'last_name',
+            'phone_number',
+            'profile_picture',
         ]
         read_only_fields = ['id']
 
