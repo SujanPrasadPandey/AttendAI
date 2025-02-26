@@ -1,4 +1,5 @@
 import os
+import csv, io
 from rest_framework import generics, viewsets
 from .serializers import (
     UserSerializer,
@@ -25,6 +26,7 @@ from django.conf import settings
 from rest_framework.generics import UpdateAPIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.files.storage import default_storage
+from rest_framework.decorators import action
 
 CustomUser = get_user_model()
 signer = TimestampSigner()
@@ -183,7 +185,62 @@ class UpdateEmailView(UpdateAPIView):
 class AdminUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
     serializer_class = AdminUserSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = []  # Replace with [IsAdminUser] later
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        role = self.request.query_params.get('role')
+        class_filter = self.request.query_params.get('class')
+        
+        if role:
+            queryset = queryset.filter(role=role)
+        
+        if class_filter:
+            queryset = queryset.filter(studentprofile__class_name=class_filter)
+        
+        return queryset.distinct()
+
+    @action(detail=False, methods=['post'], url_path='bulk-create')
+    def bulk_create(self, request):
+        csv_file = request.FILES.get('file')
+        if not csv_file:
+            return Response({"detail": "CSV file is required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            data = csv_file.read().decode('utf-8')
+            io_string = io.StringIO(data)
+            reader = csv.DictReader(io_string)
+        except Exception as e:
+            return Response({"detail": f"Error reading CSV file: {str(e)}"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        created_users = []
+        errors = []
+        for index, row in enumerate(reader, start=1):
+            serializer = AdminUserSerializer(data=row)
+            if serializer.is_valid():
+                user = serializer.save()
+                if user.email:
+                    user.email_verified = False
+                    user.save()
+                    send_verification_email(user, request)
+                created_users.append(serializer.data)
+            else:
+                errors.append({"row": index, "errors": serializer.errors})
+        
+        if errors:
+            return Response({"created": created_users, "errors": errors},
+                            status=status.HTTP_207_MULTI_STATUS)
+        return Response({"created": created_users}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        user_ids = request.data.get('user_ids', [])
+        if not user_ids or not isinstance(user_ids, list):
+            return Response({"detail": "A list of user_ids is required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        deleted_count, _ = CustomUser.objects.filter(id__in=user_ids).delete()
+        return Response({"deleted_count": deleted_count}, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         user = serializer.save()

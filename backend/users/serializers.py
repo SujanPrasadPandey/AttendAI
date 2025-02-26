@@ -56,6 +56,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
         write_only=True, required=True, style={'input_type': 'password'}
     )
     email = serializers.EmailField(required=False)
+    role = serializers.ChoiceField(choices=[('student', 'Student'), ('teacher', 'Teacher'), ('parent', 'Parent'), ('admin', 'Admin')], required=True)
 
     class Meta:
         model = CustomUser
@@ -64,6 +65,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'username',
             'email',
             'password',
+            'role',
             'is_active',
             'is_staff',
             'first_name',
@@ -74,9 +76,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate_email(self, value):
-        if value:
-            if CustomUser.objects.filter(email=value).exists():
-                raise serializers.ValidationError("A user with this email already exists.")
+        if value and CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
         return value
 
     def create(self, validated_data):
