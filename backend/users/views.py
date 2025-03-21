@@ -6,6 +6,12 @@ from .serializers import (
     EmailUpdateSerializer,
     AdminUserSerializer,
     UserProfileSerializer,
+    PasswordChangeSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+    ProfilePictureUploadSerializer,
+    VerifyEmailQuerySerializer,
+    EmptySerializer,
 )
 from .utils import (
     send_verification_email,
@@ -27,6 +33,7 @@ from rest_framework.generics import UpdateAPIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.files.storage import default_storage
 from rest_framework.decorators import action
+from rest_framework.generics import GenericAPIView
 
 CustomUser = get_user_model()
 signer = TimestampSigner()
@@ -43,14 +50,14 @@ class CreateUserView(generics.CreateAPIView):
             send_verification_email(user, self.request)
 
 
-class VerifyEmailView(APIView):
+class VerifyEmailView(GenericAPIView):
     permission_classes = [AllowAny]
+    serializer_class = VerifyEmailQuerySerializer
 
-    def get(self, request):
-        token = request.query_params.get("token")
-        if not token:
-            return Response({"detail": "Token is required."},
-                            status=status.HTTP_400_BAD_REQUEST)
+    def get(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data.get("token")
         try:
             user_pk = signer.unsign(token, max_age=86400)
             user = CustomUser.objects.get(pk=user_pk)
@@ -60,14 +67,14 @@ class VerifyEmailView(APIView):
         except SignatureExpired:
             return Response({"detail": "Token has expired."}, status=status.HTTP_400_BAD_REQUEST)
         except (BadSignature, CustomUser.DoesNotExist):
-            return Response({"detail": "Invalid token or user not found."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Invalid token or user not found."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ResendVerificationEmailView(APIView):
+class ResendVerificationEmailView(GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = EmptySerializer
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         user = request.user
         if user.email_verified:
             return Response({"detail": "Email is already verified."}, status=status.HTTP_400_BAD_REQUEST)
@@ -78,32 +85,26 @@ class ResendVerificationEmailView(APIView):
             return Response({"detail": "Error sending email: " + str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class PasswordResetRequestView(APIView):
+class PasswordResetRequestView(GenericAPIView):
     permission_classes = [AllowAny]
+    serializer_class = PasswordResetRequestSerializer
 
-    def post(self, request):
-        email = request.data.get("email")
-        if not email:
-            return Response({"detail": "Email is required."},
-                            status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data.get("email")
         try:
             user = CustomUser.objects.get(email=email)
         except CustomUser.DoesNotExist:
-            return Response({"detail": "User with this email does not exist."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "User with this email does not exist."}, status=status.HTTP_400_BAD_REQUEST)
         if not user.email_verified:
-            return Response({"detail": "Email is not verified. Cannot reset password."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Email is not verified. Cannot reset password."}, status=status.HTTP_400_BAD_REQUEST)
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
         token_generator = PasswordResetTokenGenerator()
         token = token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-
-        # relative_link = reverse("users:password-reset-confirm")
-        # reset_url = request.build_absolute_uri(f"{relative_link}?uid={uid}&token={token}")
-
-        frontend_url = os.getenv("FRONTEND_URL") 
+        frontend_url = os.getenv("FRONTEND_URL")
         reset_url = f"{frontend_url}/reset-password-confirm/?uid={uid}&token={token}"
-
         subject = "Password Reset Request"
         message = (
             f"Hi {user.username},\n\n"
@@ -111,55 +112,46 @@ class PasswordResetRequestView(APIView):
             "If you did not request a password reset, please ignore this email."
         )
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-        return Response({"detail": "Password reset email sent."})
+        return Response({"detail": "Password reset email sent."}, status=status.HTTP_200_OK)
     
 
-class PasswordResetConfirmView(APIView):
+class PasswordResetConfirmView(GenericAPIView):
     permission_classes = [AllowAny]
+    serializer_class = PasswordResetConfirmSerializer
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         uidb64 = request.query_params.get("uid")
         token = request.query_params.get("token")
-        new_password = request.data.get("new_password")
-        new_password2 = request.data.get("new_password2")
-
         if not uidb64 or not token:
-            return Response({"detail": "uid and token are required."},
-                            status=status.HTTP_400_BAD_REQUEST)
-        if new_password != new_password2:
-            return Response({"detail": "Passwords do not match."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "uid and token are required."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = CustomUser.objects.get(pk=uid)
         except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
-            return Response({"detail": "Invalid user id."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Invalid user id."}, status=status.HTTP_400_BAD_REQUEST)
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
         token_generator = PasswordResetTokenGenerator()
         if not token_generator.check_token(user, token):
-            return Response({"detail": "Invalid or expired token."},
-                            status=status.HTTP_400_BAD_REQUEST)
-        user.set_password(new_password)
+            return Response({"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(serializer.validated_data["new_password"])
         user.save()
-        return Response({"detail": "Password has been reset successfully."})
+        return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
+
+
     
-
-class PasswordChangeView(APIView):
+class PasswordChangeView(GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = PasswordChangeSerializer
 
-    def post(self, request):
-        current_password = request.data.get("current_password")
-        new_password = request.data.get("new_password")
-        new_password2 = request.data.get("new_password2")
-
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         user = request.user
-        if not user.check_password(current_password):
-            return Response({"detail": "Current password is incorrect."},
-                            status=status.HTTP_400_BAD_REQUEST)
-        if new_password != new_password2:
-            return Response({"detail": "New passwords do not match."},
-                            status=status.HTTP_400_BAD_REQUEST)
-        user.set_password(new_password)
+        if not user.check_password(serializer.validated_data["current_password"]):
+            return Response({"detail": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(serializer.validated_data["new_password"])
         user.save()
         return Response({"detail": "Password has been changed successfully."})
 
@@ -185,7 +177,7 @@ class UpdateEmailView(UpdateAPIView):
 class AdminUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
     serializer_class = AdminUserSerializer
-    permission_classes = []  # Replace with [IsAdminUser] later
+    permission_classes = [IsAdminUser]  # Replace with [IsAdminUser] later
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -268,47 +260,34 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-class ProfilePictureUploadView(APIView):
+class ProfilePictureUploadView(GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = ProfilePictureUploadSerializer
     parser_classes = [MultiPartParser, FormParser]
 
-    def post(self, request):
-        file_obj = request.FILES.get("profile_picture")
-        if not file_obj:
-            return Response({"detail": "No file provided."},
-                            status=status.HTTP_400_BAD_REQUEST)
-
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        file_obj = serializer.validated_data.get("profile_picture")
         allowed_extensions = ['.jpg', '.jpeg', '.png']
         ext = os.path.splitext(file_obj.name)[1].lower()
         if ext not in allowed_extensions:
-            return Response(
-                {"detail": "Unsupported file type. Only JPG and PNG files are allowed."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+            return Response({"detail": "Unsupported file type. Only JPG and PNG files are allowed."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             compressed_file = compress_image(file_obj)
         except Exception as e:
-            return Response(
-                {"detail": "Error processing image: " + str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+            return Response({"detail": "Error processing image: " + str(e)}, status=status.HTTP_400_BAD_REQUEST)
         user = request.user
-
         if user.profile_picture:
             try:
                 default_storage.delete(user.profile_picture.name)
-            except Exception as e:
+            except Exception:
                 pass
-
         filename = f"profile_pictures/{user.id}_{compressed_file.name}"
         file_path = default_storage.save(filename, compressed_file)
         file_url = default_storage.url(file_path)
-
         user.profile_picture = file_path
         user.save()
-
         return Response({
             "detail": "Profile picture uploaded.",
             "url": request.build_absolute_uri(file_url)
