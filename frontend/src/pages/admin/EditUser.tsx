@@ -79,7 +79,7 @@ const EditUser: React.FC = () => {
       });
       if (response.status === 200) {
         setSuccess('User updated successfully.');
-        navigate(`/manage/${role}`);
+        navigate(`/admin/manage/${role}`);
       } else {
         setError('Failed to update user.');
       }
@@ -101,7 +101,7 @@ const EditUser: React.FC = () => {
     try {
       const response = await apiClient.delete(`/api/users/admin/users/${userId}/`);
       if (response.status === 200 || response.status === 204) {
-        navigate(`/manage/${role}`);
+        navigate(`/admin/manage/${role}`);
       } else {
         setError('Failed to delete user.');
       }

@@ -7,9 +7,14 @@ import Dashboard from './pages/common/Dashboard';
 import ResetPassword from './pages/common/ResetPassword';
 import VerifyEmail from './pages/common/VerifyEmail';
 import ProfileSettings from './pages/common/ProfileSettings';
-import ManageUsers from './pages/common/ManageUsers';
-import AddUser from './pages/common/AddUser';
-import EditUser from './pages/common/EditUser';
+
+import ManageUsers from './pages/admin/ManageUsers';
+import AddUser from './pages/admin/AddUser';
+import EditUser from './pages/admin/EditUser';
+import BulkAddUsers from './pages/admin/BulkAddUsers';
+import BulkRemoveUsers from './pages/admin/BulkRemoveUsers';
+
+import AdminLayout from './components/admin/AdminLayout';
 
 const RoleBasedManagePage: React.FC = () => {
   const { role } = useParams<{ role: string }>();
@@ -17,12 +22,10 @@ const RoleBasedManagePage: React.FC = () => {
 };
 
 const RoleBasedAddPage: React.FC = () => {
-  const { role } = useParams<{ role: string }>();
   return <AddUser />;
 };
 
 const RoleBasedEditPage: React.FC = () => {
-  const { role, userId } = useParams<{ role: string; userId: string }>();
   return <EditUser />;
 };
 
@@ -38,9 +41,15 @@ const App = () => {
         <Route path="/reset-password-confirm" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/profile" element={<ProfileSettings />} />
-        <Route path="/manage/:role" element={<RoleBasedManagePage />} />
-        <Route path="/manage/:role/add" element={<RoleBasedAddPage />} />
-        <Route path="/manage/:role/edit/:userId" element={<RoleBasedEditPage />} />
+
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="manage/:role" element={<RoleBasedManagePage />} />
+          <Route path="add/:role" element={<RoleBasedAddPage />} />
+          <Route path="edit/:role/:userId" element={<RoleBasedEditPage />} />
+          <Route path="bulk-add" element={<BulkAddUsers />} />
+          <Route path="bulk-remove" element={<BulkRemoveUsers />} />
+          <Route path="profile-settings" element={<ProfileSettings />} />
+        </Route>
       </Routes>
     </Router>
   );

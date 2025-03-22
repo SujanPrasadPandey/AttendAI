@@ -48,7 +48,7 @@ const ManageUsers: React.FC<ManageUsersProps> = ({ role }) => {
           Manage {role.charAt(0).toUpperCase() + role.slice(1)}s
         </h2>
         <Link
-          to={`/manage/${role}/add`}
+          to={`/admin/add/${role}`}
           className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-gray-100"
         >
           Add {role.charAt(0).toUpperCase() + role.slice(1)}
@@ -95,7 +95,7 @@ const ManageUsers: React.FC<ManageUsersProps> = ({ role }) => {
                 <td className="border border-gray-700 px-4 py-2">{user.last_name || '-'}</td>
                 <td className="border border-gray-700 px-4 py-2">
                   <Link
-                    to={`/manage/${role}/edit/${user.id}`}
+                    to={`/admin/edit/${role}/${user.id}`}
                     className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-sm"
                   >
                     Edit

@@ -35,7 +35,7 @@ const AddUser: React.FC = () => {
       await apiClient.post(`/api/users/admin/users/`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      navigate(`/manage/${role}`);
+      navigate(`/admin/manage/${role}`);
     } catch (err: any) {
       console.error(err);
       if (err.response) {
