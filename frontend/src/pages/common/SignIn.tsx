@@ -1,13 +1,59 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode"; 
+import axios from "axios";
 import NavbarLandingPage from "../../components/landingPage/NavbarLandingPage";
 import { FaUser, FaLock } from "react-icons/fa";
+
+interface DecodedToken {
+  exp: number;
+  [key: string]: any;
+}
+
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const SignIn: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem("access_token");
+    const refreshToken = localStorage.getItem("refresh_token");
+    const storedUsername = localStorage.getItem("username");
+
+    if (accessToken && refreshToken) {
+      try {
+        const decoded: DecodedToken = jwtDecode(accessToken);
+        const currentTime = Date.now() / 1000; 
+
+        if (decoded.exp > currentTime) {
+          navigate("/dashboard", { state: { username: storedUsername } });
+        } else {
+          axios
+            .post(
+              `${backendUrl}/api/users/token/refresh/`,
+              { refresh: refreshToken },
+              { headers: { "Content-Type": "application/json" } }
+            )
+            .then((response) => {
+              localStorage.setItem("access_token", response.data.access);
+              navigate("/dashboard", { state: { username: storedUsername } });
+            })
+            .catch(() => {
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("refresh_token");
+              localStorage.removeItem("username");
+            });
+        }
+      } catch (error) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("username");
+      }
+    }
+  }, [navigate]);
 
   const handleSignIn = async () => {
     if (username.trim() === "") {
@@ -20,28 +66,25 @@ const SignIn: React.FC = () => {
     }
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      const response = await fetch(`${backendUrl}/api/users/token/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+      const response = await axios.post(
+        `${backendUrl}/api/users/token/`,
+        { username, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem("access_token", data.access);
-        localStorage.setItem("refresh_token", data.refresh);
+      if (response.status === 200) {
+        localStorage.setItem("access_token", response.data.access);
+        localStorage.setItem("refresh_token", response.data.refresh);
         localStorage.setItem("username", username);
         setError("");
         navigate("/dashboard", { state: { username } });
-      } else {
-        const errData = await response.json();
-        setError(errData.detail || "Sign in failed.");
       }
-    } catch (err) {
-      setError("Network error, please try again.");
+    } catch (err: any) {
+      if (err.response && err.response.data) {
+        setError(err.response.data.detail || "Sign in failed.");
+      } else {
+        setError("Network error, please try again.");
+      }
     }
   };
 
