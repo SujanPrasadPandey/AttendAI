@@ -212,6 +212,9 @@ class AdminUserViewSet(viewsets.ModelViewSet):
             serializer = AdminUserSerializer(data=row)
             if serializer.is_valid():
                 user = serializer.save()
+                # Ensure the user is active regardless of email verification.
+                user.is_active = True  
+                user.save()
                 if user.email:
                     user.email_verified = False
                     user.save()
@@ -236,6 +239,9 @@ class AdminUserViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = serializer.save()
+        # Ensure the user is active immediately
+        user.is_active = True  
+        user.save()
         if user.email:
             user.email_verified = False
             user.save()

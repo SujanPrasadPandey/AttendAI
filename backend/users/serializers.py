@@ -101,6 +101,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
             user.profile_picture = compress_image(profile_picture)
             
         user.set_password(password)
+        # Set the user as active so they can log in immediately
+        user.is_active = True  
         user.save()
         return user
     
