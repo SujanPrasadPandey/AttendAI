@@ -31,12 +31,29 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# SPECTACULAR_SETTINGS = {
+#     'TITLE': 'AttendAI API Docs',
+#     'DESCRIPTION': 'All API of AttendAI',
+#     'VERSION': '1.0.0',
+#     'SERVE_INCLUDE_SCHEMA': False,
+# }
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'AttendAI API Docs',
     'DESCRIPTION': 'All API of AttendAI',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'ENUM_NAME_OVERRIDES': {
+         'StatusA91Enum': 'leave_requests.serializers.LeaveStatusEnum',
+         'StatusB12Enum': 'teacher_access.serializers.TeacherAccessStatusEnum',
+    },
 }
+
+
+
+
+
+
 
 
 SIMPLE_JWT = {
@@ -54,6 +71,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "users",
+    "school_data",
+    "attendance",
+    'scheduling',
+    'facial_recognition',
+    'teacher_access',
+    'leave_requests',
+    'policies',
+    'audit',
     "rest_framework",
     "corsheaders",
     "drf_spectacular",

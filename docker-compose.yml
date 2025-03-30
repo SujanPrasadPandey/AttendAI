@@ -9,15 +9,13 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
     volumes:
-      - type: bind
-        source: ./data/db
-        target: /var/lib/postgresql/data
-        consistency: delegated
+      - postgres_data:/var/lib/postgresql/data
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host  # This makes the build process use the host network
     container_name: attendai-backend
     environment:
       POSTGRES_PASSWORD: postgres
@@ -30,6 +28,9 @@ services:
         source: ./backend
         target: /app/backend
         consistency: delegated
+      - type: bind
+        source: ./insightface_models
+        target: /root/.insightface/models
     depends_on:
       - db
 
@@ -37,6 +38,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      network: host
     container_name: attendai-frontend
     environment:
       CHOKIDAR_USEPOLLING: "true"
@@ -53,3 +55,4 @@ services:
 
 volumes:
   node_modules_frontend:
+  postgres_data:
