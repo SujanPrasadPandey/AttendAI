@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import apiClient from '../../utils/api';
 
 interface User {
@@ -11,25 +11,28 @@ interface User {
   profile_picture?: string;
 }
 
-interface ManageUsersProps {
-  role: string;
-}
-
-const ManageUsers: React.FC<ManageUsersProps> = ({ role }) => {
+const ManageUsers: React.FC = () => {
+  const { role } = useParams<{ role?: string }>();
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient.get(`/api/users/admin/users/?role=${role}`)
-      .then(response => {
-        setUsers(response.data);
-      })
-      .catch(err => {
-        console.error(`Error fetching ${role}s:`, err);
-        setError(`Failed to fetch ${role}s.`);
-      });
+    if (role) {
+      apiClient.get(`/api/users/admin/users/?role=${role}`)
+        .then(response => {
+          setUsers(response.data);
+        })
+        .catch(err => {
+          console.error(`Error fetching ${role}s:`, err);
+          setError(`Failed to fetch ${role}s.`);
+        });
+    }
   }, [role]);
+
+  if (!role) {
+    return <div className="p-4 bg-gray-900 min-h-screen text-gray-100">Error: Role is not specified.</div>;
+  }
 
   const filteredUsers = users.filter(user => {
     const query = searchQuery.toLowerCase();

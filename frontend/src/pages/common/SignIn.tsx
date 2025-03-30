@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode"; 
-import axios from "axios";
+import { jwtDecode } from "jwt-decode";
+import apiClient from "../../utils/api"; // Adjust the path to your api.ts
 import NavbarLandingPage from "../../components/landingPage/NavbarLandingPage";
 import { FaUser, FaLock } from "react-icons/fa";
 
@@ -9,8 +9,6 @@ interface DecodedToken {
   exp: number;
   [key: string]: any;
 }
-
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const SignIn: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -20,33 +18,17 @@ const SignIn: React.FC = () => {
 
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token");
-    const refreshToken = localStorage.getItem("refresh_token");
     const storedUsername = localStorage.getItem("username");
 
-    if (accessToken && refreshToken) {
+    if (accessToken) {
       try {
         const decoded: DecodedToken = jwtDecode(accessToken);
-        const currentTime = Date.now() / 1000; 
+        const currentTime = Date.now() / 1000;
 
         if (decoded.exp > currentTime) {
           navigate("/dashboard", { state: { username: storedUsername } });
-        } else {
-          axios
-            .post(
-              `${backendUrl}/api/users/token/refresh/`,
-              { refresh: refreshToken },
-              { headers: { "Content-Type": "application/json" } }
-            )
-            .then((response) => {
-              localStorage.setItem("access_token", response.data.access);
-              navigate("/dashboard", { state: { username: storedUsername } });
-            })
-            .catch(() => {
-              localStorage.removeItem("access_token");
-              localStorage.removeItem("refresh_token");
-              localStorage.removeItem("username");
-            });
         }
+        // No manual refresh needed here; apiClient will handle it on API calls
       } catch (error) {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
@@ -66,11 +48,10 @@ const SignIn: React.FC = () => {
     }
 
     try {
-      const response = await axios.post(
-        `${backendUrl}/api/users/token/`,
-        { username, password },
-        { headers: { "Content-Type": "application/json" } }
-      );
+      const response = await apiClient.post("/api/users/token/", {
+        username,
+        password,
+      });
 
       if (response.status === 200) {
         localStorage.setItem("access_token", response.data.access);

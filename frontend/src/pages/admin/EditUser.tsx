@@ -13,11 +13,12 @@ interface User {
 }
 
 const EditUser: React.FC = () => {
-  const { role, userId } = useParams<{ role: string; userId: string }>();
+  const { role, userId } = useParams<{ role?: string; userId?: string }>();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   if (!userId) {
-    return <div>Error: userId is not provided in the route.</div>;
+    return <div className="p-4 bg-gray-900 min-h-screen text-gray-100">Error: User ID is not provided in the route.</div>;
   }
 
   const [username, setUsername] = useState('');
@@ -32,9 +33,10 @@ const EditUser: React.FC = () => {
 
   useEffect(() => {
     const fetchUser = async () => {
+      setLoading(true);
       try {
         const response = await apiClient.get(`/api/users/admin/users/${userId}/`);
-        if (response.status === 200) {
+        if (response.status >= 200 && response.status < 300) {
           const data: User = response.data;
           setUsername(data.username);
           setEmail(data.email || '');
@@ -48,6 +50,8 @@ const EditUser: React.FC = () => {
       } catch (err: any) {
         console.error(err);
         setError('Network error while fetching user details.');
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -58,6 +62,7 @@ const EditUser: React.FC = () => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setLoading(true);
 
     const formData = new FormData();
     formData.append('username', username);
@@ -66,18 +71,14 @@ const EditUser: React.FC = () => {
     if (lastName.trim() !== '') formData.append('last_name', lastName);
     if (phoneNumber.trim() !== '') formData.append('phone_number', phoneNumber);
     formData.append('role', role || 'teacher');
-    if (password.trim() !== '') {
-      formData.append('password', password);
-    }
-    if (profilePicture) {
-      formData.append('profile_picture', profilePicture);
-    }
+    if (password.trim() !== '') formData.append('password', password);
+    if (profilePicture) formData.append('profile_picture', profilePicture);
 
     try {
       const response = await apiClient.patch(`/api/users/admin/users/${userId}/`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (response.status === 200) {
+      if (response.status >= 200 && response.status < 300) {
         setSuccess('User updated successfully.');
         navigate(`/admin/manage/${role}`);
       } else {
@@ -85,11 +86,9 @@ const EditUser: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      if (err.response) {
-        setError(err.response.data.detail || 'Failed to update user.');
-      } else {
-        setError('Network error while updating user.');
-      }
+      setError(err.response?.data?.detail || 'Network error while updating user.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,21 +96,20 @@ const EditUser: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     setError(null);
     setSuccess(null);
+    setLoading(true);
 
     try {
       const response = await apiClient.delete(`/api/users/admin/users/${userId}/`);
-      if (response.status === 200 || response.status === 204) {
+      if (response.status >= 200 && response.status < 300) {
         navigate(`/admin/manage/${role}`);
       } else {
         setError('Failed to delete user.');
       }
     } catch (err: any) {
       console.error(err);
-      if (err.response) {
-        setError(err.response.data.detail || 'Failed to delete user.');
-      } else {
-        setError('Network error while deleting user.');
-      }
+      setError(err.response?.data?.detail || 'Network error while deleting user.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -120,6 +118,7 @@ const EditUser: React.FC = () => {
       <h2 className="text-2xl font-bold mb-6">
         Edit {role?.charAt(0).toUpperCase() + role?.slice(1)} User
       </h2>
+      {loading && <p>Loading...</p>}
       {error && <p className="text-red-500 mb-4">{error}</p>}
       {success && <p className="text-green-400 mb-4">{success}</p>}
       <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
@@ -130,6 +129,7 @@ const EditUser: React.FC = () => {
           onChange={(e) => setUsername(e.target.value)}
           className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
           required
+          disabled={loading}
         />
         <input
           type="email"
@@ -137,6 +137,7 @@ const EditUser: React.FC = () => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+          disabled={loading}
         />
         <input
           type="text"
@@ -144,6 +145,7 @@ const EditUser: React.FC = () => {
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
           className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+          disabled={loading}
         />
         <input
           type="text"
@@ -151,6 +153,7 @@ const EditUser: React.FC = () => {
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+          disabled={loading}
         />
         <input
           type="text"
@@ -158,6 +161,7 @@ const EditUser: React.FC = () => {
           value={phoneNumber}
           onChange={(e) => setPhoneNumber(e.target.value)}
           className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+          disabled={loading}
         />
         <input
           type="password"
@@ -165,6 +169,7 @@ const EditUser: React.FC = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+          disabled={loading}
         />
         <div>
           <label className="block mb-1">Profile Picture (optional)</label>
@@ -177,12 +182,14 @@ const EditUser: React.FC = () => {
               }
             }}
             className="w-full text-gray-100"
+            disabled={loading}
           />
         </div>
         <div className="flex gap-4">
           <button
             type="submit"
             className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+            disabled={loading}
           >
             Save Changes
           </button>
@@ -190,6 +197,7 @@ const EditUser: React.FC = () => {
             type="button"
             onClick={handleDelete}
             className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
+            disabled={loading}
           >
             Delete User
           </button>

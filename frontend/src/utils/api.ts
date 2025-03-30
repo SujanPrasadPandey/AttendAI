@@ -10,7 +10,7 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor: attach access token if available.
+// Request interceptor: Attach access token to every request
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -22,7 +22,7 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: refresh token on 401 errors.
+// Response interceptor: Handle token refresh on 401 errors
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -32,32 +32,32 @@ apiClient.interceptors.response.use(
       error.response.status === 401 &&
       !originalRequest._retry
     ) {
-      originalRequest._retry = true;
+      originalRequest._retry = true; // Prevent infinite loops
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken) {
         try {
+          // Request a new access token using the refresh token
           const response = await axios.post(
             `${backendUrl}/api/users/token/refresh/`,
             { refresh: refreshToken },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
+            { headers: { 'Content-Type': 'application/json' } }
           );
           const newAccessToken = response.data.access;
           localStorage.setItem('access_token', newAccessToken);
-          // Update the Authorization header and retry the original request.
+          // Retry the original request with the new token
           originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
           return apiClient(originalRequest);
         } catch (refreshError) {
-          // Refresh failed: clear tokens and redirect to sign in.
+          // Refresh failed: Clear tokens and redirect to sign-in
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('username');
           window.location.href = '/signin';
           return Promise.reject(refreshError);
         }
+      } else {
+        // No refresh token: Redirect to sign-in
+        window.location.href = '/signin';
       }
     }
     return Promise.reject(error);
