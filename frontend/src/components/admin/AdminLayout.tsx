@@ -1,15 +1,26 @@
+// frontend/src/components/admin/AdminLayout.tsx
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 
 const AdminLayout: React.FC = () => {
   return (
-    <div className="flex h-screen">
-      <nav className="w-64 bg-gray-800 text-white p-4">
+    <div className="flex h-screen bg-gray-900 text-gray-100">
+      {/* Left-side navigation bar */}
+      <nav className="w-64 bg-gray-800 p-4">
         <ul className="space-y-4">
           <li>
             <NavLink
+              to="/admin"
+              end
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Dashboard
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/admin/manage/teacher"
-              className={({ isActive }) => (isActive ? 'font-bold' : '')}
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Manage Teachers
             </NavLink>
@@ -17,7 +28,7 @@ const AdminLayout: React.FC = () => {
           <li>
             <NavLink
               to="/admin/manage/student"
-              className={({ isActive }) => (isActive ? 'font-bold' : '')}
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Manage Students
             </NavLink>
@@ -25,7 +36,7 @@ const AdminLayout: React.FC = () => {
           <li>
             <NavLink
               to="/admin/manage/parent"
-              className={({ isActive }) => (isActive ? 'font-bold' : '')}
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Manage Parents
             </NavLink>
@@ -33,7 +44,7 @@ const AdminLayout: React.FC = () => {
           <li>
             <NavLink
               to="/admin/manage/admin"
-              className={({ isActive }) => (isActive ? 'font-bold' : '')}
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Manage Admins
             </NavLink>
@@ -41,7 +52,7 @@ const AdminLayout: React.FC = () => {
           <li>
             <NavLink
               to="/admin/bulk-add"
-              className={({ isActive }) => (isActive ? 'font-bold' : '')}
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Bulk Add Users
             </NavLink>
@@ -49,7 +60,7 @@ const AdminLayout: React.FC = () => {
           <li>
             <NavLink
               to="/admin/bulk-remove"
-              className={({ isActive }) => (isActive ? 'font-bold' : '')}
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Bulk Remove Users
             </NavLink>
@@ -57,16 +68,17 @@ const AdminLayout: React.FC = () => {
           <li>
             <NavLink
               to="/admin/profile-settings"
-              className={({ isActive }) => (isActive ? 'font-bold' : '')}
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Profile Settings
             </NavLink>
           </li>
         </ul>
       </nav>
-      
-      <main className="flex-1 p-4 overflow-auto bg-gray-900 text-gray-100">
-        <Outlet />
+
+      {/* Main content area */}
+      <main className="flex-1 p-4 overflow-auto">
+        <Outlet /> {/* Renders child routes like AdminDashboard or StudentDetails */}
       </main>
     </div>
   );

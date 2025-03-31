@@ -188,7 +188,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(role=role)
         
         if class_filter:
-            queryset = queryset.filter(studentprofile__class_name=class_filter)
+            queryset = queryset.filter(studentprofile__school_class=class_filter)
         
         return queryset.distinct()
 

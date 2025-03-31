@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
-import apiClient from "../../utils/api"; // Adjust the path to your api.ts
-import NavbarLandingPage from "../../components/landingPage/NavbarLandingPage";
-import { FaUser, FaLock } from "react-icons/fa";
+// frontend/src/pages/common/SignIn.tsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import apiClient from '../../utils/api'; // Adjust path to your API utility
+import NavbarLandingPage from '../../components/landingPage/NavbarLandingPage';
+import { FaUser, FaLock } from 'react-icons/fa';
 
 interface DecodedToken {
   exp: number;
@@ -11,14 +12,15 @@ interface DecodedToken {
 }
 
 const SignIn: React.FC = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  // Check for existing valid token on mount
   useEffect(() => {
-    const accessToken = localStorage.getItem("access_token");
-    const storedUsername = localStorage.getItem("username");
+    const accessToken = localStorage.getItem('access_token');
+    const storedUsername = localStorage.getItem('username');
 
     if (accessToken) {
       try {
@@ -26,51 +28,60 @@ const SignIn: React.FC = () => {
         const currentTime = Date.now() / 1000;
 
         if (decoded.exp > currentTime) {
-          navigate("/dashboard", { state: { username: storedUsername } });
+          navigate('/dashboard', { state: { username: storedUsername } });
         }
-        // No manual refresh needed here; apiClient will handle it on API calls
       } catch (error) {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        localStorage.removeItem("username");
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('username');
       }
     }
   }, [navigate]);
 
   const handleSignIn = async () => {
-    if (username.trim() === "") {
-      setError("Username cannot be empty.");
+    if (username.trim() === '') {
+      setError('Username cannot be empty.');
       return;
     }
-    if (password.trim() === "") {
-      setError("Password cannot be empty.");
+    if (password.trim() === '') {
+      setError('Password cannot be empty.');
       return;
     }
 
     try {
-      const response = await apiClient.post("/api/users/token/", {
+      // Authenticate user
+      const response = await apiClient.post('/api/users/token/', {
         username,
         password,
       });
 
       if (response.status === 200) {
-        localStorage.setItem("access_token", response.data.access);
-        localStorage.setItem("refresh_token", response.data.refresh);
-        localStorage.setItem("username", username);
-        setError("");
-        navigate("/dashboard", { state: { username } });
+        localStorage.setItem('access_token', response.data.access);
+        localStorage.setItem('refresh_token', response.data.refresh);
+        localStorage.setItem('username', username);
+
+        // Fetch user role
+        const userResponse = await apiClient.get('/api/users/me/');
+        const role = userResponse.data.role;
+
+        // Redirect based on role
+        if (role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard', { state: { username } });
+        }
       }
     } catch (err: any) {
       if (err.response && err.response.data) {
-        setError(err.response.data.detail || "Sign in failed.");
+        setError(err.response.data.detail || 'Sign in failed.');
       } else {
-        setError("Network error, please try again.");
+        setError('Network error, please try again.');
       }
     }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === "Enter") {
+    if (event.key === 'Enter') {
       handleSignIn();
     }
   };
