@@ -7,6 +7,8 @@ from .views import (
     SubjectRetrieveUpdateDestroyAPIView,
     TeacherProfileListCreateAPIView,
     TeacherProfileRetrieveUpdateDestroyAPIView,
+    StudentProfileListCreateAPIView,
+    StudentProfileRetrieveUpdateDestroyAPIView,
 )
 
 urlpatterns = [
@@ -16,4 +18,6 @@ urlpatterns = [
     path('subjects/<int:pk>/', SubjectRetrieveUpdateDestroyAPIView.as_view(), name='subject-detail'),
     path('teacherprofiles/', TeacherProfileListCreateAPIView.as_view(), name='teacherprofile-list-create'),
     path('teacherprofiles/<int:pk>/', TeacherProfileRetrieveUpdateDestroyAPIView.as_view(), name='teacherprofile-detail'),
+    path('studentprofiles/', StudentProfileListCreateAPIView.as_view(), name='studentprofile-list-create'),
+    path('studentprofiles/<int:pk>/', StudentProfileRetrieveUpdateDestroyAPIView.as_view(), name='studentprofile-detail'),
 ]

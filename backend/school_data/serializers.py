@@ -1,6 +1,6 @@
 # school_data/serializers.py
 from rest_framework import serializers
-from .models import SchoolClass, Subject, TeacherProfile
+from .models import SchoolClass, Subject, TeacherProfile, StudentProfile
 from users.models import CustomUser  # Assuming CustomUser is in users.models
 from users.serializers import UserSerializer  # Assuming UserSerializer exists
 
@@ -47,3 +47,30 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
         if self.instance is None and user and TeacherProfile.objects.filter(user=user).exists():
             raise serializers.ValidationError("This user already has a teacher profile.")
         return data
+    
+class StudentProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)  # Nested user details for reading
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.filter(role='student'),  # Only allow students
+        source='user',  # Maps to the user field
+        write_only=True
+    )
+    school_class = SchoolClassSerializer(read_only=True)  # Nested school class details for reading
+    school_class_id = serializers.PrimaryKeyRelatedField(
+        queryset=SchoolClass.objects.all(),
+        source='school_class',  # Maps to the school_class field
+        write_only=True,
+        required=False
+    )
+    
+    class Meta:
+        model = StudentProfile
+        fields = [
+            'id', 
+            'user', 
+            'user_id', 
+            'school_class', 
+            'school_class_id', 
+            'roll_number', 
+            'address'
+        ]
