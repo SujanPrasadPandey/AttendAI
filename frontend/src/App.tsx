@@ -16,8 +16,9 @@ import AdminLayout from './components/admin/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import StudentDetails from './pages/admin/StudentDetails';
-import ManageClasses from './pages/admin/ManageClasses'; // New import
-import ManageSubjects from './pages/admin/ManageSubjects'; // New import
+import ManageClasses from './pages/admin/ManageClasses';
+import ManageSubjects from './pages/admin/ManageSubjects';
+import ManageTeacherAccessRequests from './pages/admin/ManageTeacherAccessRequests';
 
 const App = () => {
   return (
@@ -66,8 +67,9 @@ const App = () => {
           <Route path="bulk-remove" element={<BulkRemoveUsers />} />
           <Route path="profile-settings" element={<ProfileSettings />} />
           <Route path="students/:id" element={<StudentDetails />} />
-          <Route path="manage-classes" element={<ManageClasses />} /> {/* New route */}
-          <Route path="manage-subjects" element={<ManageSubjects />} /> {/* New route */}
+          <Route path="manage-classes" element={<ManageClasses />} />
+          <Route path="manage-subjects" element={<ManageSubjects />} />
+          <Route path="manage-teacher-access-requests" element={<ManageTeacherAccessRequests />} />
         </Route>
       </Routes>
     </Router>

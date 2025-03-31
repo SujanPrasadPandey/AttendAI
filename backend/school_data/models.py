@@ -31,7 +31,7 @@ class TeacherProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     subjects = models.ManyToManyField(Subject, blank=True)
     classes = models.ManyToManyField(SchoolClass, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    # phone_number = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
         return f"Teacher Profile: {self.user.username}"
@@ -41,7 +41,7 @@ class ParentProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     # Allow a parent to be associated with multiple student profiles
     children = models.ManyToManyField(StudentProfile, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    # phone_number = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
 
     def __str__(self):

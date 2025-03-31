@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../../utils/api';
+
+interface Subject {
+  id: number;
+  name: string;
+}
+
+interface SchoolClass {
+  id: number;
+  name: string;
+}
 
 const AddUser: React.FC = () => {
   const { role } = useParams<{ role?: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
+  // User fields
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -14,7 +25,42 @@ const AddUser: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
+
+  // Teacher-specific fields
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<number[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch subjects and classes for teachers
+  useEffect(() => {
+    if (role === 'teacher') {
+      const fetchSubjects = async () => {
+        try {
+          const response = await apiClient.get('/api/school_data/subjects/');
+          setSubjects(response.data);
+        } catch (err) {
+          console.error('Error fetching subjects:', err);
+          setError('Failed to load subjects.');
+        }
+      };
+
+      const fetchClasses = async () => {
+        try {
+          const response = await apiClient.get('/api/school_data/classes/');
+          setClasses(response.data);
+        } catch (err) {
+          console.error('Error fetching classes:', err);
+          setError('Failed to load classes.');
+        }
+      };
+
+      fetchSubjects();
+      fetchClasses();
+    }
+  }, [role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,17 +78,25 @@ const AddUser: React.FC = () => {
     if (profilePicture) formData.append('profile_picture', profilePicture);
 
     try {
-      const response = await apiClient.post(`/api/users/admin/users/`, formData, {
+      // Create the user
+      const userResponse = await apiClient.post('/api/users/admin/users/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (response.status >= 200 && response.status < 300) {
-        navigate(`/admin/manage/${role || 'teacher'}`);
-      } else {
-        setError('Failed to add user.');
+      const userId = userResponse.data.id;
+
+      // If teacher, create the teacher profile
+      if (role === 'teacher') {
+        await apiClient.post('/api/school_data/teacherprofiles/', {
+          user_id: userId,
+          subject_ids: selectedSubjects,
+          class_ids: selectedClasses,
+        });
       }
+
+      navigate(`/admin/manage/${role || 'teacher'}`);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.detail || 'Network error while adding user.');
+      setError(err.response?.data?.detail || 'Error adding user or teacher profile.');
     } finally {
       setLoading(false);
     }
@@ -120,6 +174,53 @@ const AddUser: React.FC = () => {
             disabled={loading}
           />
         </div>
+
+        {/* Teacher-specific fields */}
+        {role === 'teacher' && (
+          <>
+            <div>
+              <label className="block mb-1">Subjects</label>
+              <select
+                multiple
+                value={selectedSubjects.map(String)}
+                onChange={(e) =>
+                  setSelectedSubjects(
+                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
+                  )
+                }
+                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+                disabled={loading}
+              >
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id.toString()}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1">Classes</label>
+              <select
+                multiple
+                value={selectedClasses.map(String)}
+                onChange={(e) =>
+                  setSelectedClasses(
+                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
+                  )
+                }
+                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+                disabled={loading}
+              >
+                {classes.map((classItem) => (
+                  <option key={classItem.id} value={classItem.id.toString()}>
+                    {classItem.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
         <button
           type="submit"
           className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"

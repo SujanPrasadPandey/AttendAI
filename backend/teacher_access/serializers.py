@@ -9,11 +9,13 @@ class TeacherAccessStatusEnum(Enum):
     denied = 'denied'
 
 class TeacherAccessRequestSerializer(serializers.ModelSerializer):
-    # Use the custom enum for the status field.
+    teacher_username = serializers.CharField(source='teacher.user.username', read_only=True)
+    school_class_name = serializers.CharField(source='school_class.name', read_only=True)
     status = serializers.ChoiceField(
         choices=[(tag.value, tag.name) for tag in TeacherAccessStatusEnum]
     )
 
     class Meta:
         model = TeacherClassAccess
-        fields = '__all__'
+        fields = ['id', 'teacher', 'teacher_username', 'school_class', 'school_class_name', 
+                  'status', 'requested_at', 'approved_at', 'expiry_at', 'note']

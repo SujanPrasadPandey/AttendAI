@@ -8,13 +8,22 @@ const AdminLayout: React.FC = () => {
       {/* Left-side navigation bar */}
       <nav className="w-64 bg-gray-800 p-4">
         <ul className="space-y-4">
-          <li>
+        <li>
             <NavLink
               to="/admin"
               end
               className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
               Dashboard
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              to="/admin/manage-teacher-access-requests"
+              end
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Teacher Access Requests
             </NavLink>
           </li>
           <li>

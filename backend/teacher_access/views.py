@@ -63,14 +63,23 @@ class UpdateTeacherAccessRequestView(GenericAPIView):
 
     def put(self, request, pk, format=None):
         action = request.data.get('action')
-        if action not in ['approve', 'deny']:
-            return Response({"error": "Action must be 'approve' or 'deny'."},
+        valid_actions = ['approve', 'deny', 'pending']
+        if action not in valid_actions:
+            return Response({"error": "Action must be 'approve', 'deny', or 'pending'."},
                             status=status.HTTP_400_BAD_REQUEST)
+
         access_request = get_object_or_404(TeacherClassAccess, pk=pk)
+
         if action == 'approve':
             duration_days = int(request.data.get('duration_days', 1))
             access_request.approve(duration_days=duration_days)
-        else:
+        elif action == 'deny':
             access_request.deny()
+        elif action == 'pending':
+            access_request.status = 'pending'
+            access_request.approved_at = None
+            access_request.expiry_at = None
+            access_request.save()
+
         serializer = self.get_serializer(access_request)
         return Response(serializer.data, status=status.HTTP_200_OK)

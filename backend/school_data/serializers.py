@@ -18,6 +18,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)  # Nested user details for reading
     subjects = SubjectSerializer(many=True, read_only=True)  # Full subject details for reading
     classes = SchoolClassSerializer(many=True, read_only=True)  # Full class details for reading
+    user_phone_number = serializers.CharField(source='user.phone_number', read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.filter(role='teacher'),  # Only teachers
         source='user',  # Maps to the user field
@@ -38,7 +39,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        fields = ['id', 'user', 'user_id', 'subjects', 'subject_ids', 'classes', 'class_ids', 'phone_number']
+        fields = ['id', 'user', 'user_id', 'subjects', 'subject_ids', 'classes', 'class_ids', 'user_phone_number']
 
     def validate(self, data):
         # Ensure the user doesn't already have a teacher profile during creation

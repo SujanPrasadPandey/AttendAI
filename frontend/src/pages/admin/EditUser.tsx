@@ -12,15 +12,32 @@ interface User {
   profile_picture?: string;
 }
 
+interface Subject {
+  id: number;
+  name: string;
+}
+
+interface SchoolClass {
+  id: number;
+  name: string;
+}
+
+interface TeacherProfile {
+  id: number;
+  subjects: Subject[];
+  classes: SchoolClass[];
+}
+
 const EditUser: React.FC = () => {
   const { role, userId } = useParams<{ role?: string; userId?: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   if (!userId) {
-    return <div className="p-4 bg-gray-900 min-h-screen text-gray-100">Error: User ID is not provided in the route.</div>;
+    return <div className="p-4 bg-gray-900 min-h-screen text-gray-100">Error: User ID is not provided.</div>;
   }
 
+  // User fields
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -28,35 +45,60 @@ const EditUser: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
+
+  // Teacher-specific fields
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<number[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const [teacherProfileId, setTeacherProfileId] = useState<number | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await apiClient.get(`/api/users/admin/users/${userId}/`);
-        if (response.status >= 200 && response.status < 300) {
-          const data: User = response.data;
-          setUsername(data.username);
-          setEmail(data.email || '');
-          setFirstName(data.first_name || '');
-          setLastName(data.last_name || '');
-          setPhoneNumber(data.phone_number || '');
-          setPassword('');
-        } else {
-          setError('Failed to fetch user details.');
+        // Fetch user details
+        const userResponse = await apiClient.get(`/api/users/admin/users/${userId}/`);
+        const userData: User = userResponse.data;
+        setUsername(userData.username);
+        setEmail(userData.email || '');
+        setFirstName(userData.first_name || '');
+        setLastName(userData.last_name || '');
+        setPhoneNumber(userData.phone_number || '');
+
+        // Fetch teacher-specific data if role is teacher
+        if (role === 'teacher') {
+          const subjectsResponse = await apiClient.get('/api/school_data/subjects/');
+          setSubjects(subjectsResponse.data);
+
+          const classesResponse = await apiClient.get('/api/school_data/classes/');
+          setClasses(classesResponse.data);
+
+          const profilesResponse = await apiClient.get('/api/school_data/teacherprofiles/');
+          const profile: TeacherProfile | undefined = profilesResponse.data.find(
+            (p: any) => p.user.id === parseInt(userId)
+          );
+          if (profile) {
+            setTeacherProfileId(profile.id);
+            setSelectedSubjects(profile.subjects.map((s) => s.id));
+            setSelectedClasses(profile.classes.map((c) => c.id));
+          } else {
+            setError('Teacher profile not found.');
+          }
         }
       } catch (err: any) {
         console.error(err);
-        setError('Network error while fetching user details.');
+        setError('Error fetching user or teacher profile.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUser();
-  }, [userId]);
+    fetchData();
+  }, [userId, role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,18 +117,24 @@ const EditUser: React.FC = () => {
     if (profilePicture) formData.append('profile_picture', profilePicture);
 
     try {
-      const response = await apiClient.patch(`/api/users/admin/users/${userId}/`, formData, {
+      // Update user
+      await apiClient.patch(`/api/users/admin/users/${userId}/`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (response.status >= 200 && response.status < 300) {
-        setSuccess('User updated successfully.');
-        navigate(`/admin/manage/${role}`);
-      } else {
-        setError('Failed to update user.');
+
+      // Update teacher profile if teacher
+      if (role === 'teacher' && teacherProfileId) {
+        await apiClient.patch(`/api/school_data/teacherprofiles/${teacherProfileId}/`, {
+          subject_ids: selectedSubjects,
+          class_ids: selectedClasses,
+        });
       }
+
+      setSuccess('User updated successfully.');
+      navigate(`/admin/manage/${role}`);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.detail || 'Network error while updating user.');
+      setError(err.response?.data?.detail || 'Error updating user or teacher profile.');
     } finally {
       setLoading(false);
     }
@@ -99,15 +147,11 @@ const EditUser: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await apiClient.delete(`/api/users/admin/users/${userId}/`);
-      if (response.status >= 200 && response.status < 300) {
-        navigate(`/admin/manage/${role}`);
-      } else {
-        setError('Failed to delete user.');
-      }
+      await apiClient.delete(`/api/users/admin/users/${userId}/`);
+      navigate(`/admin/manage/${role}`);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.detail || 'Network error while deleting user.');
+      setError(err.response?.data?.detail || 'Error deleting user.');
     } finally {
       setLoading(false);
     }
@@ -185,6 +229,53 @@ const EditUser: React.FC = () => {
             disabled={loading}
           />
         </div>
+
+        {/* Teacher-specific fields */}
+        {role === 'teacher' && (
+          <>
+            <div>
+              <label className="block mb-1">Subjects</label>
+              <select
+                multiple
+                value={selectedSubjects.map(String)}
+                onChange={(e) =>
+                  setSelectedSubjects(
+                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
+                  )
+                }
+                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+                disabled={loading}
+              >
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id.toString()}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1">Classes</label>
+              <select
+                multiple
+                value={selectedClasses.map(String)}
+                onChange={(e) =>
+                  setSelectedClasses(
+                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
+                  )
+                }
+                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+                disabled={loading}
+              >
+                {classes.map((classItem) => (
+                  <option key={classItem.id} value={classItem.id.toString()}>
+                    {classItem.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
         <div className="flex gap-4">
           <button
             type="submit"
