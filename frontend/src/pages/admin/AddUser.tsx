@@ -1,6 +1,9 @@
+// src/pages/admin/AddUser.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../../utils/api';
+import TeacherFormFields from '../../components/admin/TeacherFormFields';
+import StudentFormFields from '../../components/admin/StudentFormFields';
 
 interface Subject {
   id: number;
@@ -17,7 +20,7 @@ const AddUser: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  // User fields
+  // Common user fields
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -28,13 +31,19 @@ const AddUser: React.FC = () => {
 
   // Teacher-specific fields
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [teacherClasses, setTeacherClasses] = useState<SchoolClass[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<number[]>([]);
-  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const [selectedTeacherClasses, setSelectedTeacherClasses] = useState<number[]>([]);
+
+  // Student-specific fields
+  const [studentClasses, setStudentClasses] = useState<SchoolClass[]>([]);
+  const [selectedStudentClass, setSelectedStudentClass] = useState<number | ''>('');
+  const [rollNumber, setRollNumber] = useState('');
+  const [address, setAddress] = useState('');
 
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch subjects and classes for teachers
+  // Fetch data based on role
   useEffect(() => {
     if (role === 'teacher') {
       const fetchSubjects = async () => {
@@ -50,7 +59,7 @@ const AddUser: React.FC = () => {
       const fetchClasses = async () => {
         try {
           const response = await apiClient.get('/api/school_data/classes/');
-          setClasses(response.data);
+          setTeacherClasses(response.data);
         } catch (err) {
           console.error('Error fetching classes:', err);
           setError('Failed to load classes.');
@@ -58,6 +67,18 @@ const AddUser: React.FC = () => {
       };
 
       fetchSubjects();
+      fetchClasses();
+    } else if (role === 'student') {
+      // For students, we only need to fetch classes
+      const fetchClasses = async () => {
+        try {
+          const response = await apiClient.get('/api/school_data/classes/');
+          setStudentClasses(response.data);
+        } catch (err) {
+          console.error('Error fetching classes for student:', err);
+          setError('Failed to load classes.');
+        }
+      };
       fetchClasses();
     }
   }, [role]);
@@ -84,19 +105,27 @@ const AddUser: React.FC = () => {
       });
       const userId = userResponse.data.id;
 
-      // If teacher, create the teacher profile
       if (role === 'teacher') {
+        // Create teacher profile
         await apiClient.post('/api/school_data/teacherprofiles/', {
           user_id: userId,
           subject_ids: selectedSubjects,
-          class_ids: selectedClasses,
+          class_ids: selectedTeacherClasses,
+        });
+      } else if (role === 'student') {
+        // Create student profile
+        await apiClient.post('/api/school_data/studentprofiles/', {
+          user_id: userId,
+          school_class: selectedStudentClass,
+          roll_number: rollNumber,
+          address: address,
         });
       }
 
       navigate(`/admin/manage/${role || 'teacher'}`);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.detail || 'Error adding user or teacher profile.');
+      setError(err.response?.data?.detail || 'Error adding user or profile.');
     } finally {
       setLoading(false);
     }
@@ -110,6 +139,7 @@ const AddUser: React.FC = () => {
       {loading && <p>Adding user...</p>}
       {error && <p className="text-red-500 mb-4">{error}</p>}
       <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+        {/* Common user fields */}
         <input
           type="text"
           placeholder="Username"
@@ -175,50 +205,30 @@ const AddUser: React.FC = () => {
           />
         </div>
 
-        {/* Teacher-specific fields */}
+        {/* Role-specific fields */}
         {role === 'teacher' && (
-          <>
-            <div>
-              <label className="block mb-1">Subjects</label>
-              <select
-                multiple
-                value={selectedSubjects.map(String)}
-                onChange={(e) =>
-                  setSelectedSubjects(
-                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
-                  )
-                }
-                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
-                disabled={loading}
-              >
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id.toString()}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block mb-1">Classes</label>
-              <select
-                multiple
-                value={selectedClasses.map(String)}
-                onChange={(e) =>
-                  setSelectedClasses(
-                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
-                  )
-                }
-                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
-                disabled={loading}
-              >
-                {classes.map((classItem) => (
-                  <option key={classItem.id} value={classItem.id.toString()}>
-                    {classItem.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
+          <TeacherFormFields
+            subjects={subjects}
+            teacherClasses={teacherClasses}
+            selectedSubjects={selectedSubjects}
+            selectedTeacherClasses={selectedTeacherClasses}
+            setSelectedSubjects={setSelectedSubjects}
+            setSelectedTeacherClasses={setSelectedTeacherClasses}
+            disabled={loading}
+          />
+        )}
+
+        {role === 'student' && (
+          <StudentFormFields
+            studentClasses={studentClasses}
+            selectedStudentClass={selectedStudentClass}
+            rollNumber={rollNumber}
+            address={address}
+            setSelectedStudentClass={setSelectedStudentClass}
+            setRollNumber={setRollNumber}
+            setAddress={setAddress}
+            disabled={loading}
+          />
         )}
 
         <button

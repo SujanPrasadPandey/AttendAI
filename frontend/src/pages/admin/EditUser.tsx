@@ -1,6 +1,9 @@
+// src/pages/admin/EditUser.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../../utils/api';
+import TeacherFormFields from '../../components/admin/TeacherFormFields';
+import StudentFormFields from '../../components/admin/StudentFormFields';
 
 interface User {
   id: number;
@@ -28,6 +31,13 @@ interface TeacherProfile {
   classes: SchoolClass[];
 }
 
+interface StudentProfile {
+  id: number;
+  school_class: SchoolClass | null;
+  roll_number: string;
+  address: string;
+}
+
 const EditUser: React.FC = () => {
   const { role, userId } = useParams<{ role?: string; userId?: string }>();
   const navigate = useNavigate();
@@ -37,7 +47,7 @@ const EditUser: React.FC = () => {
     return <div className="p-4 bg-gray-900 min-h-screen text-gray-100">Error: User ID is not provided.</div>;
   }
 
-  // User fields
+  // Common user fields
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -48,10 +58,17 @@ const EditUser: React.FC = () => {
 
   // Teacher-specific fields
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [teacherClasses, setTeacherClasses] = useState<SchoolClass[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<number[]>([]);
-  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const [selectedTeacherClasses, setSelectedTeacherClasses] = useState<number[]>([]);
   const [teacherProfileId, setTeacherProfileId] = useState<number | null>(null);
+
+  // Student-specific fields
+  const [studentClasses, setStudentClasses] = useState<SchoolClass[]>([]);
+  const [selectedStudentClass, setSelectedStudentClass] = useState<number | ''>('');
+  const [rollNumber, setRollNumber] = useState('');
+  const [address, setAddress] = useState('');
+  const [studentProfileId, setStudentProfileId] = useState<number | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -60,7 +77,7 @@ const EditUser: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch user details
+        // Fetch common user details
         const userResponse = await apiClient.get(`/api/users/admin/users/${userId}/`);
         const userData: User = userResponse.data;
         setUsername(userData.username);
@@ -69,13 +86,13 @@ const EditUser: React.FC = () => {
         setLastName(userData.last_name || '');
         setPhoneNumber(userData.phone_number || '');
 
-        // Fetch teacher-specific data if role is teacher
         if (role === 'teacher') {
+          // Fetch teacher-specific data
           const subjectsResponse = await apiClient.get('/api/school_data/subjects/');
           setSubjects(subjectsResponse.data);
 
           const classesResponse = await apiClient.get('/api/school_data/classes/');
-          setClasses(classesResponse.data);
+          setTeacherClasses(classesResponse.data);
 
           const profilesResponse = await apiClient.get('/api/school_data/teacherprofiles/');
           const profile: TeacherProfile | undefined = profilesResponse.data.find(
@@ -84,14 +101,31 @@ const EditUser: React.FC = () => {
           if (profile) {
             setTeacherProfileId(profile.id);
             setSelectedSubjects(profile.subjects.map((s) => s.id));
-            setSelectedClasses(profile.classes.map((c) => c.id));
+            setSelectedTeacherClasses(profile.classes.map((c) => c.id));
           } else {
             setError('Teacher profile not found.');
+          }
+        } else if (role === 'student') {
+          // Fetch student-specific data
+          const classesResponse = await apiClient.get('/api/school_data/classes/');
+          setStudentClasses(classesResponse.data);
+
+          const profilesResponse = await apiClient.get('/api/school_data/studentprofiles/');
+          const profile: StudentProfile | undefined = profilesResponse.data.find(
+            (p: any) => p.user.id === parseInt(userId)
+          );
+          if (profile) {
+            setStudentProfileId(profile.id);
+            setSelectedStudentClass(profile.school_class ? profile.school_class.id : '');
+            setRollNumber(profile.roll_number);
+            setAddress(profile.address);
+          } else {
+            setError('Student profile not found.');
           }
         }
       } catch (err: any) {
         console.error(err);
-        setError('Error fetching user or teacher profile.');
+        setError('Error fetching user or profile.');
       } finally {
         setLoading(false);
       }
@@ -117,16 +151,23 @@ const EditUser: React.FC = () => {
     if (profilePicture) formData.append('profile_picture', profilePicture);
 
     try {
-      // Update user
+      // Update common user data
       await apiClient.patch(`/api/users/admin/users/${userId}/`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Update teacher profile if teacher
       if (role === 'teacher' && teacherProfileId) {
+        // Update teacher profile
         await apiClient.patch(`/api/school_data/teacherprofiles/${teacherProfileId}/`, {
           subject_ids: selectedSubjects,
-          class_ids: selectedClasses,
+          class_ids: selectedTeacherClasses,
+        });
+      } else if (role === 'student' && studentProfileId) {
+        // Update student profile
+        await apiClient.patch(`/api/school_data/studentprofiles/${studentProfileId}/`, {
+          school_class: selectedStudentClass,
+          roll_number: rollNumber,
+          address: address,
         });
       }
 
@@ -134,7 +175,7 @@ const EditUser: React.FC = () => {
       navigate(`/admin/manage/${role}`);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.detail || 'Error updating user or teacher profile.');
+      setError(err.response?.data?.detail || 'Error updating user or profile.');
     } finally {
       setLoading(false);
     }
@@ -166,6 +207,7 @@ const EditUser: React.FC = () => {
       {error && <p className="text-red-500 mb-4">{error}</p>}
       {success && <p className="text-green-400 mb-4">{success}</p>}
       <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+        {/* Common user fields */}
         <input
           type="text"
           placeholder="Username"
@@ -230,53 +272,33 @@ const EditUser: React.FC = () => {
           />
         </div>
 
-        {/* Teacher-specific fields */}
+        {/* Role-specific fields */}
         {role === 'teacher' && (
-          <>
-            <div>
-              <label className="block mb-1">Subjects</label>
-              <select
-                multiple
-                value={selectedSubjects.map(String)}
-                onChange={(e) =>
-                  setSelectedSubjects(
-                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
-                  )
-                }
-                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
-                disabled={loading}
-              >
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id.toString()}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block mb-1">Classes</label>
-              <select
-                multiple
-                value={selectedClasses.map(String)}
-                onChange={(e) =>
-                  setSelectedClasses(
-                    Array.from(e.target.selectedOptions, (option) => parseInt(option.value))
-                  )
-                }
-                className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
-                disabled={loading}
-              >
-                {classes.map((classItem) => (
-                  <option key={classItem.id} value={classItem.id.toString()}>
-                    {classItem.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
+          <TeacherFormFields
+            subjects={subjects}
+            teacherClasses={teacherClasses}
+            selectedSubjects={selectedSubjects}
+            selectedTeacherClasses={selectedTeacherClasses}
+            setSelectedSubjects={setSelectedSubjects}
+            setSelectedTeacherClasses={setSelectedTeacherClasses}
+            disabled={loading}
+          />
         )}
 
-        <div className="flex gap-4">
+        {role === 'student' && (
+          <StudentFormFields
+            studentClasses={studentClasses}
+            selectedStudentClass={selectedStudentClass}
+            rollNumber={rollNumber}
+            address={address}
+            setSelectedStudentClass={setSelectedStudentClass}
+            setRollNumber={setRollNumber}
+            setAddress={setAddress}
+            disabled={loading}
+          />
+        )}
+
+        <div>
           <button
             type="submit"
             className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
@@ -287,7 +309,7 @@ const EditUser: React.FC = () => {
           <button
             type="button"
             onClick={handleDelete}
-            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
+            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded ml-4"
             disabled={loading}
           >
             Delete User
