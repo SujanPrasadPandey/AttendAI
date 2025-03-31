@@ -51,6 +51,22 @@ const AdminLayout: React.FC = () => {
           </li>
           <li>
             <NavLink
+              to="/admin/manage-classes"
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Manage Classes
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              to="/admin/manage-subjects"
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Manage Subjects
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/admin/bulk-add"
               className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >

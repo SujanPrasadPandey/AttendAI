@@ -1,4 +1,3 @@
-// frontend/src/App.tsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './pages/common/LandingPage';
 import SignIn from './pages/common/SignIn';
@@ -15,8 +14,10 @@ import BulkAddUsers from './pages/admin/BulkAddUsers';
 import BulkRemoveUsers from './pages/admin/BulkRemoveUsers';
 import AdminLayout from './components/admin/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
-import AdminDashboard from './pages/admin/AdminDashboard'; // New admin dashboard component
-import StudentDetails from './pages/admin/StudentDetails'; // New student details component
+import AdminDashboard from './pages/admin/AdminDashboard';
+import StudentDetails from './pages/admin/StudentDetails';
+import ManageClasses from './pages/admin/ManageClasses'; // New import
+import ManageSubjects from './pages/admin/ManageSubjects'; // New import
 
 const App = () => {
   return (
@@ -57,17 +58,17 @@ const App = () => {
             </ProtectedRoute>
           }
         >
-          <Route index element={<AdminDashboard />} /> {/* Default admin page */}
+          <Route index element={<AdminDashboard />} />
           <Route path="manage/:role" element={<ManageUsers />} />
           <Route path="add/:role" element={<AddUser />} />
           <Route path="edit/:role/:userId" element={<EditUser />} />
           <Route path="bulk-add" element={<BulkAddUsers />} />
           <Route path="bulk-remove" element={<BulkRemoveUsers />} />
           <Route path="profile-settings" element={<ProfileSettings />} />
-          <Route path="students/:id" element={<StudentDetails />} /> {/* Student details */}
+          <Route path="students/:id" element={<StudentDetails />} />
+          <Route path="manage-classes" element={<ManageClasses />} /> {/* New route */}
+          <Route path="manage-subjects" element={<ManageSubjects />} /> {/* New route */}
         </Route>
-
-        {/* Add more role-specific routes here as needed */}
       </Routes>
     </Router>
   );
