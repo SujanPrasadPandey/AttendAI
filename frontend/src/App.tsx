@@ -1,3 +1,4 @@
+// src/App.tsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './pages/common/LandingPage';
 import SignIn from './pages/common/SignIn';
@@ -19,6 +20,7 @@ import StudentDetails from './pages/admin/StudentDetails';
 import ManageClasses from './pages/admin/ManageClasses';
 import ManageSubjects from './pages/admin/ManageSubjects';
 import ManageTeacherAccessRequests from './pages/admin/ManageTeacherAccessRequests';
+import ManageStudentPhotos from './pages/admin/ManageStudentPhotos';
 
 const App = () => {
   return (
@@ -70,6 +72,7 @@ const App = () => {
           <Route path="manage-classes" element={<ManageClasses />} />
           <Route path="manage-subjects" element={<ManageSubjects />} />
           <Route path="manage-teacher-access-requests" element={<ManageTeacherAccessRequests />} />
+          <Route path="manage-student-photos" element={<ManageStudentPhotos />} />
         </Route>
       </Routes>
     </Router>

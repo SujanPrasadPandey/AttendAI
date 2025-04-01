@@ -44,6 +44,14 @@ const AdminLayout: React.FC = () => {
           </li>
           <li>
             <NavLink
+              to="/admin/manage-student-photos"
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Manage Students Photos
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/admin/manage/parent"
               className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
