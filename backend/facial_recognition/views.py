@@ -1,332 +1,276 @@
-import uuid
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.generics import GenericAPIView, ListAPIView, DestroyAPIView
+from django.shortcuts import get_object_or_404
+from .models import FaceImage, FaceEmbedding, StudentProfile, UnrecognizedFace, ReviewFace
+from .serializers import (
+    EnrollFaceSerializer, MarkAttendanceSerializer, AssignUnrecognizedFaceSerializer,
+    ConfirmReviewFaceSerializer, FaceImageSerializer, UnrecognizedFaceSerializer, ReviewFaceSerializer
+)
+from attendance.models import AttendanceRecord as CentralAttendanceRecord
+from insightface.app import FaceAnalysis
 import numpy as np
 import cv2
 from PIL import Image
-import logging
-from django.utils.timezone import now
-
-from django.conf import settings
-from rest_framework.generics import GenericAPIView, ListAPIView
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-
-from school_data.models import StudentProfile
-from .models import FaceEmbedding, UnrecognizedFace, ReviewFace
-from .serializers import (
-    EnrollFaceSerializer,
-    MarkAttendanceSerializer,
-    BatchEnrollFaceSerializer,
-    ReviewFaceSerializer,
-    UnrecognizedFaceSerializer,
-    ReviewFaceAssignmentSerializer,
-    FaceEmbeddingSerializer,
-)
-
-# Import your existing attendance model (from your attendance app)
-from attendance.models import AttendanceRecord
-
-# Facial recognition libraries
-from insightface.app import FaceAnalysis
-import onnxruntime as ort
+from datetime import date
 from sklearn.metrics.pairwise import cosine_similarity
+import uuid
+from PIL import Image as PilImage
+from io import BytesIO
+from django.core.files import File
+from django.core.files.base import ContentFile
 
-logger = logging.getLogger(__name__)
-
-# Thresholds (adjust as needed)
-SIMILARITY_THRESHOLD = 0.3      # minimum threshold to consider a candidate match
-HIGH_CONFIDENCE_THRESHOLD = 0.6   # above this threshold, automatically accept
-
-# Set up providers: use GPU if available, otherwise CPU
-available_providers = ort.get_available_providers()
-providers = ['CUDAExecutionProvider'] if 'CUDAExecutionProvider' in available_providers else ['CPUExecutionProvider']
-
-# Initialize the face analysis application with the 'buffalo_l' model
-app = FaceAnalysis(name='buffalo_l', providers=providers)
+# Initialize InsightFace model
+app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
 app.prepare(ctx_id=0, det_size=(640, 640), det_thresh=0.4)
 
-# Helper function to convert an uploaded image to OpenCV format
-def load_image_from_request(image_file):
-    image = Image.open(image_file)
-    image = image.convert('RGB')
+# Thresholds
+SIMILARITY_THRESHOLD = 0.4
+HIGH_CONFIDENCE_THRESHOLD = 0.9
+
+# Helper functions
+def compute_embedding(image_file):
+    image = Image.open(image_file).convert('RGB')
     image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-    return image
+    faces = app.get(image)
+    if len(faces) != 1:
+        return None
+    return faces[0].normed_embedding.tolist()
+
+def crop_face(image_file):
+    image = Image.open(image_file).convert('RGB')
+    image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    faces = app.get(image)
+    if not faces:
+        return None
+    face = faces[0]
+    bbox = face.bbox.astype(int)
+    cropped = Image.fromarray(cv2.cvtColor(image[bbox[1]:bbox[3], bbox[0]:bbox[2]], cv2.COLOR_BGR2RGB))
+    return cropped
+
+def update_embedding_with_new_face(student, new_embedding):
+    face_embedding, created = FaceEmbedding.objects.get_or_create(student=student)
+    if not face_embedding.avg_embedding:
+        face_embedding.avg_embedding = new_embedding
+        face_embedding.num_samples = 1
+    else:
+        current_embedding = np.array(face_embedding.avg_embedding)
+        new_embedding = np.array(new_embedding)
+        avg_embedding = (current_embedding * face_embedding.num_samples + new_embedding) / (face_embedding.num_samples + 1)
+        face_embedding.avg_embedding = avg_embedding.tolist()
+        face_embedding.num_samples += 1
+    face_embedding.save()
+
+def save_pil_image_to_file(pil_image, filename):
+    buffer = BytesIO()
+    pil_image.save(buffer, format='JPEG')
+    buffer.seek(0)
+    return File(buffer, name=filename)
+
+def compress_image(image_file, max_size=(640, 640), quality=85):
+    img = PilImage.open(image_file)
+    img.thumbnail(max_size, PilImage.Resampling.LANCZOS)  # Resize while preserving aspect ratio
+    output = BytesIO()
+    img.save(output, format='JPEG', quality=quality)  # Compress to JPEG
+    output.seek(0)
+    return ContentFile(output.read(), name=image_file.name)
 
 
+# Enroll a single face image
 class EnrollFaceView(GenericAPIView):
-    """
-    Endpoint to enroll or update a student's face embedding.
-    Expects:
-      - student_id (in request.data)
-      - image file (in request.FILES with key "image")
-    """
     serializer_class = EnrollFaceSerializer
 
-    def post(self, request, format=None):
+    def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            student_id = serializer.validated_data.get("student_id")
-            image_file = serializer.validated_data.get("image")
-            try:
-                student_profile = StudentProfile.objects.get(pk=student_id)
-            except StudentProfile.DoesNotExist:
-                return Response({"error": "Student profile not found"}, status=status.HTTP_404_NOT_FOUND)
-            
-            image = load_image_from_request(image_file)
-            faces = app.get(image)
-            if len(faces) != 1:
-                # Save the full image as an unrecognized face
-                UnrecognizedFace.objects.create(
-                    image=image_file,
-                    note=f"Expected 1 face, detected {len(faces)}."
-                )
+            student_id = serializer.validated_data['student_id']
+            image_file = serializer.validated_data['image']
+            compressed_image = compress_image(image_file)  # Compress the image
+            student = get_object_or_404(StudentProfile, pk=student_id)
+            embedding = compute_embedding(compressed_image)  # Use compressed image
+            if not embedding:
                 return Response({"error": "Image must contain exactly one face."}, status=status.HTTP_400_BAD_REQUEST)
-            
-            embedding = faces[0].normed_embedding.tolist()
-            face_embedding, created = FaceEmbedding.objects.get_or_create(student=student_profile)
-            if face_embedding.avg_embedding:
-                current_avg = np.array(face_embedding.avg_embedding)
-                num_samples = face_embedding.num_samples
-                new_avg = (current_avg * num_samples + np.array(embedding)) / (num_samples + 1)
-                face_embedding.avg_embedding = new_avg.tolist()
-                face_embedding.num_samples = num_samples + 1
-            else:
-                face_embedding.avg_embedding = embedding
-                face_embedding.num_samples = 1
+            FaceImage.objects.create(student=student, image=compressed_image, embedding=embedding)
+            update_embedding_with_new_face(student, embedding)
+            return Response({"message": "Image enrolled successfully."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# Remove a face image
+class RemoveFaceImageView(DestroyAPIView):
+    queryset = FaceImage.objects.all()
+    serializer_class = FaceImageSerializer
+    lookup_field = 'pk'
 
-            face_embedding.embeddings[str(face_embedding.num_samples)] = embedding
+    def destroy(self, request, *args, **kwargs):
+        face_image = self.get_object()
+        student = face_image.student
+        face_image.delete()
+        # Recalculate average embedding
+        face_images = student.face_images.all()
+        embeddings = [img.embedding for img in face_images if img.embedding]
+        if embeddings:
+            avg_embedding = np.mean(embeddings, axis=0).tolist()
+            face_embedding = student.face_embedding
+            face_embedding.avg_embedding = avg_embedding
+            face_embedding.num_samples = len(embeddings)
             face_embedding.save()
-            return Response({
-                "message": "Enrollment updated.",
-                "avg_embedding": face_embedding.avg_embedding,
-                "num_samples": face_embedding.num_samples
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Image removed successfully."}, status=status.HTTP_200_OK)
 
+# List a student’s face images
+class StudentFaceImagesView(ListAPIView):
+    serializer_class = FaceImageSerializer
 
-class BatchEnrollFaceView(GenericAPIView):
-    """
-    Endpoint for batch enrollment.
-    Expects a JSON payload:
-      {
-         "enrollments": [
-              {
-                  "student_id": 1,
-                  "images": [<image1>, <image2>, ...]
-              },
-              {
-                  "student_id": 2,
-                  "images": [<image1>, <image2>, ...]
-              },
-              ...
-         ]
-      }
-    """
-    serializer_class = BatchEnrollFaceSerializer
-
-    def post(self, request, format=None):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            results = []
-            for enrollment in serializer.validated_data['enrollments']:
-                student_id = enrollment.get("student_id")
-                image_files = enrollment.get("images")
-                try:
-                    student_profile = StudentProfile.objects.get(pk=student_id)
-                except StudentProfile.DoesNotExist:
-                    results.append({
-                        "student_id": student_id,
-                        "status": "error",
-                        "message": "Student profile not found"
-                    })
-                    continue
-
-                face_embedding, created = FaceEmbedding.objects.get_or_create(student=student_profile)
-                enrollment_success = 0
-                for image_file in image_files:
-                    image = load_image_from_request(image_file)
-                    faces = app.get(image)
-                    if len(faces) != 1:
-                        UnrecognizedFace.objects.create(
-                            image=image_file,
-                            note=f"Expected 1 face, detected {len(faces)}."
-                        )
-                        continue
-                    embedding = faces[0].normed_embedding.tolist()
-                    if face_embedding.avg_embedding:
-                        current_avg = np.array(face_embedding.avg_embedding)
-                        num_samples = face_embedding.num_samples
-                        new_avg = (current_avg * num_samples + np.array(embedding)) / (num_samples + 1)
-                        face_embedding.avg_embedding = new_avg.tolist()
-                        face_embedding.num_samples = num_samples + 1
-                    else:
-                        face_embedding.avg_embedding = embedding
-                        face_embedding.num_samples = 1
-
-                    face_embedding.embeddings[str(face_embedding.num_samples)] = embedding
-                    face_embedding.save()
-                    enrollment_success += 1
-
-                results.append({
-                    "student_id": student_id,
-                    "status": "success" if enrollment_success > 0 else "failed",
-                    "processed_images": enrollment_success
-                })
-
-            return Response({"results": results}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def get_queryset(self):
+        student_id = self.kwargs['student_id']
+        student = get_object_or_404(StudentProfile, pk=student_id)
+        return student.face_images.all()
 
 
 class MarkAttendanceView(GenericAPIView):
-    """
-    Endpoint to mark attendance by analyzing one or multiple uploaded classroom images.
-    Expects:
-      {
-         "images": [<image1>, <image2>, ...]
-      }
-    Processes all images to recognize faces, deduplicates recognized students, marks attendance
-    for today using the existing AttendanceRecord model, and saves unrecognized or low-confidence
-    images for review.
-    """
     serializer_class = MarkAttendanceSerializer
 
-    def post(self, request, format=None):
+    def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            image_files = serializer.validated_data.get("images")
-            recognized_user_ids = set()  # IDs for high-confidence recognized faces
+            images = serializer.validated_data['images']
+            status_input = serializer.validated_data['status']
+            today = date.today()
+            recognized_student_ids = set()
 
-            # Process each image
-            for image_file in image_files:
-                image = load_image_from_request(image_file)
-                faces = app.get(image)
+            # Process each uploaded image for face recognition
+            for image_file in images:
+                # Convert uploaded image to a format suitable for face detection
+                image = Image.open(image_file).convert('RGB')
+                image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                faces = app.get(image)  # Detect all faces in the image
 
-                if not faces:
-                    # Save the full image as unrecognized if no face is detected
-                    UnrecognizedFace.objects.create(
-                        image=image_file,
-                        note="No face detected."
-                    )
-                    continue
-
-                all_embeddings = FaceEmbedding.objects.filter(avg_embedding__isnull=False)
                 for face in faces:
-                    face_emb = face.normed_embedding
+                    embedding = face.normed_embedding.tolist()
+                    students = StudentProfile.objects.filter(face_embedding__isnull=False)
                     best_match = None
-                    best_similarity = 0.0
-                    for fe in all_embeddings:
-                        stored_emb = np.array(fe.avg_embedding)
-                        sim = cosine_similarity([face_emb], [stored_emb])[0][0]
-                        if sim > best_similarity:
-                            best_similarity = sim
-                            best_match = fe
+                    highest_similarity = 0
 
-                    if best_similarity >= HIGH_CONFIDENCE_THRESHOLD and best_match:
-                        recognized_user_ids.add(best_match.student.user.id)
-                    elif SIMILARITY_THRESHOLD <= best_similarity < HIGH_CONFIDENCE_THRESHOLD:
-                        # Save this face for review (low confidence)
-                        ReviewFace.objects.create(
-                            student=best_match.student if best_match else None,
-                            image=image_file,
-                            similarity=best_similarity,
-                            note="Low confidence recognition."
-                        )
+                    # Find the best match among enrolled students
+                    for student in students:
+                        avg_embedding = student.face_embedding.avg_embedding
+                        if avg_embedding:
+                            similarity = cosine_similarity([embedding], [avg_embedding])[0][0]
+                            if similarity > highest_similarity:
+                                highest_similarity = similarity
+                                best_match = student
+
+                    # Crop the face using its bounding box
+                    bbox = face.bbox.astype(int)
+                    cropped = image[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+                    cropped_pil = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
+
+                    # Process based on similarity
+                    if best_match and highest_similarity >= SIMILARITY_THRESHOLD:  # 0.4 or higher
+                        # Mark attendance
+                        recognized_student_ids.add(best_match.id)
+                        
+                        if highest_similarity >= HIGH_CONFIDENCE_THRESHOLD:  # 0.9 or higher
+                            # High confidence: update embedding automatically
+                            update_embedding_with_new_face(best_match, embedding)
+                        else:  # Between 0.4 and 0.9
+                            # Medium confidence: save for admin review
+                            filename = f'review_{uuid.uuid4()}.jpg'
+                            image_file_review = save_pil_image_to_file(cropped_pil, filename)
+                            ReviewFace.objects.create(
+                                suggested_student=best_match,
+                                image=image_file_review,
+                                embedding=embedding,
+                                similarity=highest_similarity
+                            )
                     else:
-                        # If similarity is below the minimum threshold, treat as unrecognized.
+                        # No match or similarity < 0.4: save as unrecognized
+                        filename = f'unrecognized_{uuid.uuid4()}.jpg'
+                        image_file_unrec = save_pil_image_to_file(cropped_pil, filename)
                         UnrecognizedFace.objects.create(
-                            image=image_file,
-                            note=f"Low similarity: {best_similarity:.2f}"
+                            image=image_file_unrec,
+                            embedding=embedding
                         )
 
-            # Mark attendance using the existing AttendanceRecord model.
-            today = now().date()
-            attendance_records = []
-            for user_id in recognized_user_ids:
-                record, created = AttendanceRecord.objects.get_or_create(
-                    student_id=user_id,
+            # Mark attendance for recognized students using the attendance app's model
+            for student_id in recognized_student_ids:
+                student = StudentProfile.objects.get(id=student_id)
+                CentralAttendanceRecord.objects.get_or_create(
+                    student=student,  # Assumes StudentProfile has a 'user' field linked to User
                     date=today,
-                    defaults={'status': 'present', 'note': 'Auto marked via facial recognition'}
+                    defaults={
+                        'status': 'present' if status_input == 'onTime' else 'late',
+                        'recorded_by': None,  # Automated marking, no specific user
+                        'note': 'Marked via facial recognition'
+                    }
                 )
-                attendance_records.append({
-                    "student_id": user_id,
-                    "date": str(today),
-                    "recorded": created  # True if a new record was created
-                })
 
+            # Return success response2
             return Response({
-                "date": str(today),
-                "attendance_records": attendance_records,
-                "recognized_students": list(recognized_user_ids)
+                "message": f"Attendance marked for {len(recognized_student_ids)} students.",
+                "recognized_students": list(recognized_student_ids),
+                "status": status_input
             }, status=status.HTTP_200_OK)
+
+        # Return validation errors if serializer is invalid
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-# New endpoints for review functionality
-
-class ReviewFaceListView(ListAPIView):
-    """
-    List all review face records (low-confidence images) that need manual assignment.
-    """
-    queryset = ReviewFace.objects.all()
-    serializer_class = ReviewFaceSerializer
-
-
+# List unrecognized faces
 class UnrecognizedFaceListView(ListAPIView):
-    """
-    List all unrecognized face records.
-    """
-    queryset = UnrecognizedFace.objects.all()
     serializer_class = UnrecognizedFaceSerializer
+    queryset = UnrecognizedFace.objects.filter(identified_student__isnull=True, discarded=False)
 
+# Assign unrecognized face to a student
+class AssignUnrecognizedFaceView(GenericAPIView):
+    serializer_class = AssignUnrecognizedFaceSerializer
 
-class ReviewFaceAssignmentView(APIView):
-    """
-    Endpoint to assign a review face to a student.
-    Expects a payload:
-    {
-        "review_face_id": <id>,
-        "student_id": <id>
-    }
-    This view will reprocess the review face image to extract its embedding and then update the student's FaceEmbedding record.
-    After assignment, the review face record is deleted.
-    """
-    serializer_class = ReviewFaceAssignmentSerializer
-
-    def post(self, request, format=None):
-        serializer = self.serializer_class(data=request.data)
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            review_face_id = serializer.validated_data.get("review_face_id")
-            student_id = serializer.validated_data.get("student_id")
-            try:
-                review_face = ReviewFace.objects.get(pk=review_face_id)
-            except ReviewFace.DoesNotExist:
-                return Response({"error": "Review face not found."}, status=status.HTTP_404_NOT_FOUND)
-            try:
-                student_profile = StudentProfile.objects.get(pk=student_id)
-            except StudentProfile.DoesNotExist:
-                return Response({"error": "Student profile not found."}, status=status.HTTP_404_NOT_FOUND)
-            # Reprocess the review face image to extract the embedding
-            image = load_image_from_request(review_face.image)
-            faces = app.get(image)
-            if not faces or len(faces) != 1:
-                return Response({"error": "The review face does not contain exactly one face."},
-                                status=status.HTTP_400_BAD_REQUEST)
-            embedding = faces[0].normed_embedding.tolist()
-            face_embedding, created = FaceEmbedding.objects.get_or_create(student=student_profile)
-            if face_embedding.avg_embedding:
-                current_avg = np.array(face_embedding.avg_embedding)
-                num_samples = face_embedding.num_samples
-                new_avg = (current_avg * num_samples + np.array(embedding)) / (num_samples + 1)
-                face_embedding.avg_embedding = new_avg.tolist()
-                face_embedding.num_samples = num_samples + 1
-            else:
-                face_embedding.avg_embedding = embedding
-                face_embedding.num_samples = 1
+            face_id = serializer.validated_data['face_id']
+            student_id = serializer.validated_data.get('student_id')
+            face = get_object_or_404(UnrecognizedFace, pk=face_id)
 
-            face_embedding.embeddings[str(face_embedding.num_samples)] = embedding
-            face_embedding.save()
-            # Remove the review face record after assignment
-            review_face.delete()
-            return Response({"message": "Review face assigned and enrollment updated."},
-                            status=status.HTTP_200_OK)
+            if student_id:
+                student = get_object_or_404(StudentProfile, pk=student_id)
+                face.identified_student = student
+                face.save()
+                update_embedding_with_new_face(student, face.embedding)
+                return Response({"message": "Face assigned and embedding updated."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"message": "Face remains unassigned for admin review."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# List review faces
+class ReviewFaceListView(ListAPIView):
+    serializer_class = ReviewFaceSerializer
+    queryset = ReviewFace.objects.filter(confirmed_student__isnull=True, discarded=False)
+
+# Confirm or correct review face
+class ConfirmReviewFaceView(GenericAPIView):
+    serializer_class = ConfirmReviewFaceSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            face_id = serializer.validated_data['face_id']
+            action = serializer.validated_data['action']
+            confirmed_student_id = serializer.validated_data.get('confirmed_student_id')
+            face = get_object_or_404(ReviewFace, pk=face_id)
+
+            if action in ['confirm', 'reassign']:
+                if confirmed_student_id:
+                    confirmed_student = get_object_or_404(StudentProfile, pk=confirmed_student_id)
+                    face.confirmed_student = confirmed_student
+                    face.save()
+                    update_embedding_with_new_face(confirmed_student, face.embedding)
+                    return Response({"message": f"Review face {'confirmed' if action == 'confirm' else 'reassigned'}."}, status=200)
+                else:
+                    return Response({"error": "confirmed_student_id required."}, status=400)
+            elif action == 'discard':
+                face.discarded = True
+                face.save()
+                return Response({"message": "Review face discarded."}, status=200)
+            else:
+                return Response({"error": "Invalid action."}, status=400)
+        return Response(serializer.errors, status=400)
+    

@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from datetime import date
+from school_data.models import StudentProfile
 
 # Define choices for attendance status
 ATTENDANCE_STATUS_CHOICES = (
@@ -11,8 +12,8 @@ ATTENDANCE_STATUS_CHOICES = (
 )
 
 class AttendanceRecord(models.Model):
-    # Reference to the student user. (You may later switch this to StudentProfile if desired.)
-    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    # Reference to the student user.
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
     date = models.DateField(default=date.today)
     status = models.CharField(max_length=20, choices=ATTENDANCE_STATUS_CHOICES)
     # The user (e.g., a teacher) who recorded this attendance; can be null if AI processed.
