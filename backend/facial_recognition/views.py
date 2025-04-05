@@ -19,6 +19,7 @@ from PIL import Image as PilImage
 from io import BytesIO
 from django.core.files import File
 from django.core.files.base import ContentFile
+from .utils import recalculate_embedding
 
 # Initialize InsightFace model
 app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
@@ -243,7 +244,7 @@ class AssignUnrecognizedFaceView(GenericAPIView):
 # List review faces
 class ReviewFaceListView(ListAPIView):
     serializer_class = ReviewFaceSerializer
-    queryset = ReviewFace.objects.filter(confirmed_student__isnull=True, discarded=False)
+    queryset = ReviewFace.objects.filter(discarded=False)
 
 # Confirm or correct review face
 class ConfirmReviewFaceView(GenericAPIView):
@@ -258,19 +259,54 @@ class ConfirmReviewFaceView(GenericAPIView):
             face = get_object_or_404(ReviewFace, pk=face_id)
 
             if action in ['confirm', 'reassign']:
-                if confirmed_student_id:
-                    confirmed_student = get_object_or_404(StudentProfile, pk=confirmed_student_id)
-                    face.confirmed_student = confirmed_student
-                    face.save()
-                    update_embedding_with_new_face(confirmed_student, face.embedding)
-                    return Response({"message": f"Review face {'confirmed' if action == 'confirm' else 'reassigned'}."}, status=200)
-                else:
+                if not confirmed_student_id:
                     return Response({"error": "confirmed_student_id required."}, status=400)
+                confirmed_student = get_object_or_404(StudentProfile, pk=confirmed_student_id)
+                old_student = None
+
+                if face.confirmed_student and face.confirmed_student != confirmed_student:
+                    # Reassignment: Adjust embeddings for old and new students
+                    old_student = face.confirmed_student
+                    if face.face_image:
+                        # Move the FaceImage to the new student
+                        face.face_image.student = confirmed_student
+                        face.face_image.save()
+                        # Recalculate embeddings
+                        recalculate_embedding(old_student)
+                        recalculate_embedding(confirmed_student)
+                    else:
+                        # Shouldn’t happen, but create FaceImage if missing
+                        face_image = FaceImage.objects.create(
+                            student=confirmed_student,
+                            image=face.image,
+                            embedding=face.embedding
+                        )
+                        face.face_image = face_image
+                        recalculate_embedding(confirmed_student)
+                else:
+                    # First confirmation or same student
+                    if not face.face_image:
+                        face_image = FaceImage.objects.create(
+                            student=confirmed_student,
+                            image=face.image,
+                            embedding=face.embedding
+                        )
+                        face.face_image = face_image
+                        recalculate_embedding(confirmed_student)
+                    # If face_image exists, no action needed unless student changed
+
+                face.confirmed_student = confirmed_student
+                face.save()
+                return Response({"message": f"Review face {'confirmed' if action == 'confirm' else 'reassigned'}."}, status=200)
+
             elif action == 'discard':
+                if face.face_image:
+                    student = face.face_image.student
+                    face.face_image.delete()
+                    recalculate_embedding(student)
                 face.discarded = True
                 face.save()
                 return Response({"message": "Review face discarded."}, status=200)
-            else:
-                return Response({"error": "Invalid action."}, status=400)
+
+            return Response({"error": "Invalid action."}, status=400)
         return Response(serializer.errors, status=400)
-    

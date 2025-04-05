@@ -37,7 +37,8 @@ class UnrecognizedFaceSerializer(serializers.ModelSerializer):
 # Serializer for listing review faces
 class ReviewFaceSerializer(serializers.ModelSerializer):
     suggested_student_name = serializers.CharField(source='suggested_student.user.username', read_only=True)
+    confirmed_student_name = serializers.CharField(source='confirmed_student.user.username', read_only=True, allow_null=True)
 
     class Meta:
         model = ReviewFace
-        fields = ['id', 'image', 'similarity', 'timestamp', 'suggested_student', 'suggested_student_name']
+        fields = ['id', 'image', 'similarity', 'timestamp', 'suggested_student', 'suggested_student_name', 'confirmed_student', 'confirmed_student_name']
