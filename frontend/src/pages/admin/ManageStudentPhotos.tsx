@@ -1,4 +1,3 @@
-// src/pages/admin/ManageStudentPhotos.tsx
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../utils/api';
 
@@ -104,20 +103,21 @@ const ManageStudentPhotos: React.FC = () => {
       }
     }
 
-    // Step 2: Add new photos
+    // Step 2: Add new photos one-by-one
+    const uploadResults = [];
     for (const photo of newPhotos) {
       const formData = new FormData();
       formData.append('student_id', selectedStudent.id.toString());
       formData.append('image', photo);
       try {
-        await apiClient.post('/api/facial_recognition/enroll/', formData, {
+        const response = await apiClient.post('/api/facial_recognition/enroll/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-      } catch (error) {
-        setMessage('Failed to enroll a new photo.');
-        console.error('Error enrolling photo:', error);
-        setLoading(false);
-        return;
+        uploadResults.push({ success: true, fileName: photo.name, message: response.data.message });
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.error || 'Unknown error';
+        uploadResults.push({ success: false, fileName: photo.name, message: errorMessage });
+        console.error(`Error enrolling ${photo.name}:`, error);
       }
     }
 
@@ -127,7 +127,18 @@ const ManageStudentPhotos: React.FC = () => {
       setPhotos(response.data);
       setNewPhotos([]);
       setPhotosToRemove([]);
-      setMessage('Photos updated successfully!');
+
+      // Summarize upload results
+      const successes = uploadResults.filter((r) => r.success);
+      const failures = uploadResults.filter((r) => !r.success);
+      let resultMessage = '';
+      if (successes.length > 0) {
+        resultMessage += `Successfully enrolled ${successes.length} photo(s). `;
+      }
+      if (failures.length > 0) {
+        resultMessage += `Failed to enroll ${failures.length} photo(s): ${failures.map((f) => `${f.fileName} (${f.message})`).join(', ')}.`;
+      }
+      setMessage(resultMessage.trim());
     } catch (error) {
       setMessage('Failed to refresh photo list.');
       console.error('Error refreshing photos:', error);
@@ -175,7 +186,7 @@ const ManageStudentPhotos: React.FC = () => {
                 <img
                   src={photo.image}
                   alt="Student Photo"
-                  className="w-55 h-55 object-cover rounded"
+                  className="w-full h-32 object-cover rounded"
                 />
                 {!photosToRemove.includes(photo.id) ? (
                   <button
