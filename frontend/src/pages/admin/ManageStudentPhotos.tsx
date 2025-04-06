@@ -1,202 +1,234 @@
 // src/pages/admin/ManageStudentPhotos.tsx
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import apiClient from '../../utils/api';
 
 interface Student {
   id: number;
-  username: string;
-  // include other fields as needed
+  user: {
+    username: string;
+  };
 }
 
-interface EnrollResponse {
-  message: string;
-  avg_embedding?: number[];
-  num_samples?: number;
+interface FaceImage {
+  id: number;
+  image: string; // URL to the image
+  created_at: string;
 }
 
 const ManageStudentPhotos: React.FC = () => {
-  // State for list of students
   const [students, setStudents] = useState<Student[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  // State for images to enroll (pending images)
-  const [pendingImages, setPendingImages] = useState<File[]>([]);
-  // For preview URLs of pending images (so we can show thumbnails)
-  const [previewURLs, setPreviewURLs] = useState<string[]>([]);
-  // Status message and errors
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [photos, setPhotos] = useState<FaceImage[]>([]);
+  const [newPhotos, setNewPhotos] = useState<File[]>([]);
+  const [photosToRemove, setPhotosToRemove] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  // Fetch student list on mount
+  // Fetch all students when the page loads
   useEffect(() => {
     const fetchStudents = async () => {
+      setLoading(true);
       try {
-        const response = await apiClient.get('/api/users/admin/users/?role=student');
+        const response = await apiClient.get('/api/school_data/studentprofiles/');
         setStudents(response.data);
-      } catch (err) {
-        console.error('Error fetching students:', err);
-        setError('Failed to load students.');
+      } catch (error) {
+        setMessage('Failed to load students.');
+        console.error('Error fetching students:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchStudents();
   }, []);
 
-  // Filtered student list based on search query
-  const filteredStudents = students.filter((student) =>
-    student.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Fetch photos when a student is selected
+  useEffect(() => {
+    if (selectedStudent) {
+      const fetchPhotos = async () => {
+        setLoading(true);
+        try {
+          const response = await apiClient.get(`/api/facial_recognition/student/${selectedStudent.id}/images/`);
+          setPhotos(response.data);
+        } catch (error) {
+          setMessage('Failed to load photos.');
+          console.error('Error fetching photos:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchPhotos();
+    }
+  }, [selectedStudent]);
 
-  // Handler when selecting a student from the list
-  const handleSelectStudent = (student: Student) => {
+  // Handle selecting a student
+  const handleStudentSelect = (student: Student) => {
     setSelectedStudent(student);
-    // Clear any pending images when a new student is selected
-    setPendingImages([]);
-    setPreviewURLs([]);
-    setMessage(null);
-    setError(null);
+    setPhotos([]);
+    setNewPhotos([]);
+    setPhotosToRemove([]);
+    setMessage('');
   };
 
-  // Handler for file input change – add image to pending images and preview URLs
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setPendingImages((prev) => [...prev, file]);
-      const previewUrl = URL.createObjectURL(file);
-      setPreviewURLs((prev) => [...prev, previewUrl]);
+  // Handle adding new photos
+  const handleAddPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const files = Array.from(event.target.files);
+      setNewPhotos((prev) => [...prev, ...files]);
     }
   };
 
-  // Handler to remove an image from pending list
-  const handleRemoveImage = (index: number) => {
-    setPendingImages((prev) => prev.filter((_, i) => i !== index));
-    setPreviewURLs((prev) => prev.filter((_, i) => i !== index));
+  // Handle marking a photo for removal
+  const handleRemovePhoto = (photoId: number) => {
+    setPhotosToRemove((prev) => [...prev, photoId]);
   };
 
-  // Handler for enrolling images for the selected student
+  // Handle the Enroll button click
   const handleEnroll = async () => {
     if (!selectedStudent) {
-      setError('Please select a student.');
+      setMessage('Please select a student.');
       return;
     }
-    if (pendingImages.length === 0) {
-      setError('No images to enroll.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setMessage(null);
 
-    try {
-      // Loop over each image and call enroll API using the correct endpoint
-      const enrollPromises = pendingImages.map((file) => {
-        const formData = new FormData();
-        formData.append('student_id', selectedStudent.id.toString());
-        formData.append('image', file);
-        return apiClient.post<EnrollResponse>('/api/facial_recognition/enroll/', formData, {
+    setLoading(true);
+    setMessage('');
+
+    // Step 1: Remove selected photos
+    for (const photoId of photosToRemove) {
+      try {
+        await apiClient.delete(`/api/facial_recognition/remove-image/${photoId}/`);
+      } catch (error) {
+        setMessage(`Failed to remove photo ID ${photoId}.`);
+        console.error('Error removing photo:', error);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Step 2: Add new photos
+    for (const photo of newPhotos) {
+      const formData = new FormData();
+      formData.append('student_id', selectedStudent.id.toString());
+      formData.append('image', photo);
+      try {
+        await apiClient.post('/api/facial_recognition/enroll/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-      });
-      const responses = await Promise.all(enrollPromises);
-      // Optionally, process responses; here we simply show a success message.
-      setMessage(`Enrolled ${responses.length} image${responses.length > 1 ? 's' : ''} for ${selectedStudent.username}.`);
-      // Clear pending images after enrollment
-      setPendingImages([]);
-      setPreviewURLs([]);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.detail || 'Error enrolling images.');
+      } catch (error) {
+        setMessage('Failed to enroll a new photo.');
+        console.error('Error enrolling photo:', error);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Step 3: Refresh the photo list
+    try {
+      const response = await apiClient.get(`/api/facial_recognition/student/${selectedStudent.id}/images/`);
+      setPhotos(response.data);
+      setNewPhotos([]);
+      setPhotosToRemove([]);
+      setMessage('Photos updated successfully!');
+    } catch (error) {
+      setMessage('Failed to refresh photo list.');
+      console.error('Error refreshing photos:', error);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-4 bg-gray-900 min-h-screen text-gray-100">
-      {/* Search bar and student selection */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div className="flex-1 mb-4 md:mb-0">
-          <input
-            type="text"
-            placeholder="Search students..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-gray-100"
-          />
-        </div>
-      </div>
+    <div className="p-6 bg-gray-900 text-gray-100 min-h-screen">
+      <h1 className="text-3xl font-bold mb-6">Manage Student Photos</h1>
 
-      {/* Student list */}
+      {loading && <p className="text-blue-400">Loading...</p>}
+      {message && <p className={message.includes('Failed') ? 'text-red-500' : 'text-green-500'}>{message}</p>}
+
+      {/* Student List */}
       <div className="mb-6">
-        {filteredStudents.length > 0 ? (
-          <ul className="space-y-2">
-            {filteredStudents.map((student) => (
-              <li
-                key={student.id}
-                className={`p-2 border border-gray-700 rounded cursor-pointer hover:bg-gray-800 ${selectedStudent?.id === student.id ? 'bg-gray-800' : ''}`}
-                onClick={() => handleSelectStudent(student)}
-              >
-                {student.username}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No students found.</p>
-        )}
+        <h2 className="text-xl font-semibold mb-2">Students</h2>
+        <ul className="bg-gray-800 p-4 rounded-lg max-h-96 overflow-y-auto">
+          {students.map((student) => (
+            <li
+              key={student.id}
+              onClick={() => handleStudentSelect(student)}
+              className={`p-2 cursor-pointer hover:bg-gray-700 rounded ${
+                selectedStudent?.id === student.id ? 'bg-blue-600' : ''
+              }`}
+            >
+              {student.user.username}
+            </li>
+          ))}
+        </ul>
       </div>
 
-      {/* Selected student panel */}
+      {/* Selected Student Photos */}
       {selectedStudent && (
-        <div className="border border-gray-700 rounded">
-          {/* Top thin box: Student info and enroll button */}
-          <div className="flex justify-between items-center p-2 border-b border-gray-700 bg-gray-800">
-            <span className="font-semibold">{selectedStudent.username}</span>
-            <button
-              onClick={handleEnroll}
-              disabled={loading || pendingImages.length === 0}
-              className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-gray-100"
-            >
-              {loading ? 'Enrolling...' : 'Enroll Images'}
-            </button>
+        <div>
+          <h2 className="text-xl font-semibold mb-4">
+            Photos for {selectedStudent.user.username}
+          </h2>
+
+          {/* Existing Photos */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {photos.map((photo) => (
+              <div key={photo.id} className="relative">
+                <img
+                  src={photo.image}
+                  alt="Student Photo"
+                  className="w-55 h-55 object-cover rounded"
+                />
+                {!photosToRemove.includes(photo.id) ? (
+                  <button
+                    onClick={() => handleRemovePhoto(photo.id)}
+                    className="absolute top-1 right-1 bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <span className="absolute top-1 right-1 bg-yellow-500 text-white px-2 py-1 rounded">
+                    To Be Removed
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
 
-          {/* Bottom fat box: List of images with "Add" button */}
-          <div className="p-4">
-            <div className="mb-4">
-              <label className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded cursor-pointer text-gray-100">
-                Add Image
-                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-              </label>
-            </div>
-            {previewURLs.length > 0 ? (
-              <div className="flex space-x-4 overflow-x-auto py-2">
-                {previewURLs
-                  .slice()
-                  .reverse() // Latest first
-                  .map((url, index) => (
-                    <div key={index} className="relative">
-                      <img src={url} alt="Enrolled" className="w-32 h-32 object-cover rounded" />
-                      <button
-                        onClick={() =>
-                          // Calculate index relative to original pendingImages array
-                          handleRemoveImage(previewURLs.length - 1 - index)
-                        }
-                        className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+          {/* New Photos Preview */}
+          {newPhotos.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">New Photos to Add</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {newPhotos.map((file, index) => (
+                  <img
+                    key={index}
+                    src={URL.createObjectURL(file)}
+                    alt="New Photo"
+                    className="w-full h-32 object-cover rounded"
+                  />
+                ))}
               </div>
-            ) : (
-              <p className="text-gray-400">No images added yet.</p>
-            )}
+            </div>
+          )}
+
+          {/* Add Photos and Enroll */}
+          <div className="flex items-center space-x-4">
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleAddPhoto}
+              className="text-gray-100 bg-gray-700 p-2 rounded file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+            />
+            <button
+              onClick={handleEnroll}
+              disabled={loading || (newPhotos.length === 0 && photosToRemove.length === 0)}
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-500"
+            >
+              Enroll
+            </button>
           </div>
         </div>
       )}
-
-      {error && <p className="mt-4 text-red-500">{error}</p>}
-      {message && <p className="mt-4 text-green-400">{message}</p>}
     </div>
   );
 };

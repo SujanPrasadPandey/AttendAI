@@ -21,6 +21,7 @@ import ManageClasses from './pages/admin/ManageClasses';
 import ManageSubjects from './pages/admin/ManageSubjects';
 import ManageTeacherAccessRequests from './pages/admin/ManageTeacherAccessRequests';
 import ManageStudentPhotos from './pages/admin/ManageStudentPhotos';
+import MarkAttendance from './pages/teacher/MarkAttendance';
 
 const App = () => {
   return (
@@ -74,6 +75,16 @@ const App = () => {
           <Route path="manage-teacher-access-requests" element={<ManageTeacherAccessRequests />} />
           <Route path="manage-student-photos" element={<ManageStudentPhotos />} />
         </Route>
+
+        {/* Teacher-Only Routes */}
+        <Route
+          path="/teacher/mark-attendance"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <MarkAttendance />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Router>
   );
