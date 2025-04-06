@@ -21,6 +21,10 @@ from django.core.files import File
 from django.core.files.base import ContentFile
 from .utils import recalculate_embedding
 
+from rest_framework.permissions import IsAuthenticated
+from .permissions import AdminOnlyPermission, TeacherOrAdminPermission
+
+
 # Initialize InsightFace model
 app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
 app.prepare(ctx_id=0, det_size=(640, 640), det_thresh=0.4)
@@ -79,6 +83,7 @@ def compress_image(image_file, max_size=(640, 640), quality=85):
 
 # Enroll a single face image
 class EnrollFaceView(GenericAPIView):
+    permission_classes = [IsAuthenticated, AdminOnlyPermission]
     serializer_class = EnrollFaceSerializer
 
     def post(self, request, *args, **kwargs):
@@ -98,6 +103,7 @@ class EnrollFaceView(GenericAPIView):
     
 # Remove a face image
 class RemoveFaceImageView(DestroyAPIView):
+    permission_classes = [IsAuthenticated, AdminOnlyPermission]
     queryset = FaceImage.objects.all()
     serializer_class = FaceImageSerializer
     lookup_field = 'pk'
@@ -119,6 +125,7 @@ class RemoveFaceImageView(DestroyAPIView):
 
 # List a student’s face images
 class StudentFaceImagesView(ListAPIView):
+    permission_classes = [IsAuthenticated, AdminOnlyPermission]
     serializer_class = FaceImageSerializer
 
     def get_queryset(self):
@@ -128,6 +135,7 @@ class StudentFaceImagesView(ListAPIView):
 
 
 class MarkAttendanceView(GenericAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     serializer_class = MarkAttendanceSerializer
 
     def post(self, request, *args, **kwargs):
@@ -217,11 +225,13 @@ class MarkAttendanceView(GenericAPIView):
 
 # List unrecognized faces
 class UnrecognizedFaceListView(ListAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     serializer_class = UnrecognizedFaceSerializer
     queryset = UnrecognizedFace.objects.filter(identified_student__isnull=True, discarded=False)
 
 # Assign unrecognized face to a student
 class AssignUnrecognizedFaceView(GenericAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     serializer_class = AssignUnrecognizedFaceSerializer
 
     def post(self, request, *args, **kwargs):
@@ -243,11 +253,13 @@ class AssignUnrecognizedFaceView(GenericAPIView):
 
 # List review faces
 class ReviewFaceListView(ListAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     serializer_class = ReviewFaceSerializer
     queryset = ReviewFace.objects.filter(discarded=False)
 
 # Confirm or correct review face
 class ConfirmReviewFaceView(GenericAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     serializer_class = ConfirmReviewFaceSerializer
 
     def post(self, request, *args, **kwargs):
