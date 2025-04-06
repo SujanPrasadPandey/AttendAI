@@ -186,7 +186,7 @@ const ManageStudentPhotos: React.FC = () => {
                 <img
                   src={photo.image}
                   alt="Student Photo"
-                  className="w-full h-32 object-cover rounded"
+                  className="w-55 h-55 object-cover rounded"
                 />
                 {!photosToRemove.includes(photo.id) ? (
                   <button

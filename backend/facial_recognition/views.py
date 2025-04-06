@@ -74,6 +74,7 @@ def save_pil_image_to_file(pil_image, filename):
 
 def compress_image(image_file, max_size=(640, 640), quality=85):
     img = PilImage.open(image_file)
+    img = img.convert('RGB')
     img.thumbnail(max_size, PilImage.Resampling.LANCZOS)  # Resize while preserving aspect ratio
     output = BytesIO()
     img.save(output, format='JPEG', quality=quality)  # Compress to JPEG
@@ -155,6 +156,21 @@ class MarkAttendanceView(GenericAPIView):
 
                 for face in faces:
                     embedding = face.normed_embedding.tolist()
+                    bbox = face.bbox.astype(int)
+                    # Get image dimensions
+                    h, w = image.shape[:2]
+                    # Clip bounding box coordinates to image boundaries
+                    left = max(0, bbox[0])
+                    top = max(0, bbox[1])
+                    right = min(w, bbox[2])
+                    bottom = min(h, bbox[3])
+                    # Check if the cropped region would be empty
+                    if right <= left or bottom <= top:
+                        continue  # Skip this face
+                    # Crop the face using the validated bounding box
+                    cropped = image[top:bottom, left:right]
+                    cropped_pil = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
+
                     students = StudentProfile.objects.filter(face_embedding__isnull=False)
                     best_match = None
                     highest_similarity = 0
@@ -167,11 +183,6 @@ class MarkAttendanceView(GenericAPIView):
                             if similarity > highest_similarity:
                                 highest_similarity = similarity
                                 best_match = student
-
-                    # Crop the face using its bounding box
-                    bbox = face.bbox.astype(int)
-                    cropped = image[bbox[1]:bbox[3], bbox[0]:bbox[2]]
-                    cropped_pil = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
 
                     # Process based on similarity
                     if best_match and highest_similarity >= SIMILARITY_THRESHOLD:  # 0.4 or higher
@@ -213,7 +224,7 @@ class MarkAttendanceView(GenericAPIView):
                     }
                 )
 
-            # Return success response2
+            # Return success response
             return Response({
                 "message": f"Attendance marked for {len(recognized_student_ids)} students.",
                 "recognized_students": list(recognized_student_ids),
@@ -222,7 +233,7 @@ class MarkAttendanceView(GenericAPIView):
 
         # Return validation errors if serializer is invalid
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    
 # List unrecognized faces
 class UnrecognizedFaceListView(ListAPIView):
     permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
@@ -255,7 +266,12 @@ class AssignUnrecognizedFaceView(GenericAPIView):
 class ReviewFaceListView(ListAPIView):
     permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     serializer_class = ReviewFaceSerializer
-    queryset = ReviewFace.objects.filter(discarded=False)
+    
+    def get_queryset(self):
+        include_discarded = self.request.query_params.get('include_discarded', 'false').lower() == 'true'
+        if include_discarded:
+            return ReviewFace.objects.all()
+        return ReviewFace.objects.filter(discarded=False)
 
 # Confirm or correct review face
 class ConfirmReviewFaceView(GenericAPIView):

@@ -3,6 +3,8 @@ from rest_framework import generics
 from .models import SchoolClass, Subject, TeacherProfile, StudentProfile
 from .serializers import SchoolClassSerializer, SubjectSerializer, TeacherProfileSerializer, StudentProfileSerializer
 from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAuthenticated
+from .permissions import TeacherOrAdminPermission
 
 # SchoolClass views
 class SchoolClassListCreateAPIView(generics.ListCreateAPIView):
@@ -36,11 +38,11 @@ class TeacherProfileRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 # StudentProfile views
 
 class StudentProfileListCreateAPIView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
-    permission_classes = [IsAdminUser]
 
 class StudentProfileRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
-    permission_classes = [IsAdminUser]
