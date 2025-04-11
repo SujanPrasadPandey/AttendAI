@@ -31,13 +31,6 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-# SPECTACULAR_SETTINGS = {
-#     'TITLE': 'AttendAI API Docs',
-#     'DESCRIPTION': 'All API of AttendAI',
-#     'VERSION': '1.0.0',
-#     'SERVE_INCLUDE_SCHEMA': False,
-# }
-
 SPECTACULAR_SETTINGS = {
     'TITLE': 'AttendAI API Docs',
     'DESCRIPTION': 'All API of AttendAI',
@@ -48,13 +41,6 @@ SPECTACULAR_SETTINGS = {
          'StatusB12Enum': 'teacher_access.serializers.TeacherAccessStatusEnum',
     },
 }
-
-
-
-
-
-
-
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),

@@ -100,6 +100,22 @@ const AdminLayout: React.FC = () => {
           </li>
           <li>
             <NavLink
+              to="/admin/unrecognized-faces"
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Unrecognized Faces
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              to="/admin/review-faces"
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Review Faces
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/admin/profile-settings"
               className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >
