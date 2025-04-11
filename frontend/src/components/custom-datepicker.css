@@ -1,0 +1,38 @@
+/* Custom background for the calendar popup */
+.react-datepicker-custom {
+  background-color: #2d3748; /* Dark background matching Tailwind's gray-800 */
+  color: #f7fafc;            /* Light text color (gray-100) */
+  border: 1px solid #4a5568;
+}
+
+/* Header styling */
+.react-datepicker__header {
+  background-color: #2d3748;
+  border-bottom: none;
+}
+
+/* Day names, current month and times */
+.react-datepicker__day-name,
+.react-datepicker__current-month,
+.react-datepicker__day,
+.react-datepicker__time-name {
+  color: #f7fafc;
+}
+
+/* Custom day styling using the custom class from our component */
+.react-datepicker-day-custom {
+  color: #f7fafc;
+}
+
+/* Hover state for days */
+.react-datepicker__day:hover {
+  background-color: #4a5568;
+  color: #fff;
+}
+
+/* Selected day styling */
+.react-datepicker__day--selected,
+.react-datepicker__day--selected:hover {
+  background-color: #4a5568;
+  color: #fff;
+}

@@ -5,6 +5,7 @@ from .serializers import SchoolClassSerializer, SubjectSerializer, TeacherProfil
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from .permissions import TeacherOrAdminPermission
+from django_filters.rest_framework import DjangoFilterBackend
 
 # SchoolClass views
 class SchoolClassListCreateAPIView(generics.ListCreateAPIView):
@@ -28,7 +29,9 @@ class SubjectRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
 class TeacherProfileListCreateAPIView(generics.ListCreateAPIView):
     queryset = TeacherProfile.objects.all()
     serializer_class = TeacherProfileSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['user']
 
 class TeacherProfileRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = TeacherProfile.objects.all()
@@ -36,11 +39,12 @@ class TeacherProfileRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     permission_classes = [IsAdminUser]
 
 # StudentProfile views
-
 class StudentProfileListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['school_class']
 
 class StudentProfileRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, TeacherOrAdminPermission]

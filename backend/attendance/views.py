@@ -2,11 +2,13 @@
 from rest_framework import generics
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import AttendanceRecord
+from rest_framework.permissions import IsAuthenticated
+from .permissions import TeacherOrAdminPermission
 from .serializers import AttendanceRecordSerializer
 import django_filters.rest_framework as df_filters
 
 class AttendanceRecordFilter(df_filters.FilterSet):
-    school_class = df_filters.NumberFilter(field_name='student__studentprofile__school_class')
+    school_class = df_filters.NumberFilter(field_name='student__school_class')
 
     class Meta:
         model = AttendanceRecord
@@ -17,7 +19,9 @@ class AttendanceRecordListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = AttendanceRecordSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = AttendanceRecordFilter
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
 
 class AttendanceRecordDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = AttendanceRecord.objects.all()
     serializer_class = AttendanceRecordSerializer
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]

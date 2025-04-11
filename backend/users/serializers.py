@@ -9,9 +9,16 @@ CustomUser = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=False)
 
+    profile_picture = serializers.SerializerMethodField()
+
+    def get_profile_picture(self, obj):
+        if obj.profile_picture:
+            return self.context['request'].build_absolute_uri(obj.profile_picture.url)
+        return None
+
     class Meta:
         model = CustomUser
-        fields = ["id", "username", "email", "password", "role"]
+        fields = ["id", "username", "email", "password", "role", 'first_name', 'last_name', 'profile_picture']
         extra_kwargs = {
             "password": {"write_only": True, "style": {"input_type": "password"}},
         }

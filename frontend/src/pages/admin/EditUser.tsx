@@ -165,7 +165,7 @@ const EditUser: React.FC = () => {
       } else if (role === 'student' && studentProfileId) {
         // Update student profile
         await apiClient.patch(`/api/school_data/studentprofiles/${studentProfileId}/`, {
-          school_class: selectedStudentClass,
+          school_class_id: selectedStudentClass,
           roll_number: rollNumber,
           address: address,
         });

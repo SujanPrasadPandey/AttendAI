@@ -1,43 +1,54 @@
+// src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect } from 'react';
 import apiClient from '../utils/api';
 
+interface CustomUser {
+  id: number;
+  role: string;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  profile_picture: string | null;
+}
+
 interface AuthContextType {
-  role: string | null;
+  user: CustomUser | null;
   isLoading: boolean;
-  setRole: (role: string | null) => void;
+  setUser: (user: CustomUser | null) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
-  role: null,
-  isLoading: true, // Start as loading
-  setRole: () => {},
+  user: null,
+  isLoading: true,
+  setUser: () => {},
 });
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [role, setRole] = useState<string | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<CustomUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const fetchUser = async () => {
       try {
         const response = await apiClient.get('/api/users/me/');
-        setRole(response.data.role);
+        setUser(response.data);
       } catch (error) {
-        console.error('Failed to fetch user role:', error);
+        console.error('Failed to fetch user:', error);
       } finally {
-        setIsLoading(false); // Done loading, success or fail
+        setIsLoading(false);
       }
     };
 
     if (localStorage.getItem('access_token')) {
-      fetchUserRole();
+      fetchUser();
     } else {
       setIsLoading(false);
     }
   }, []);
 
   return (
-    <AuthContext.Provider value={{ role, isLoading, setRole }}>
+    <AuthContext.Provider value={{ user, isLoading, setUser }}>
       {children}
     </AuthContext.Provider>
   );

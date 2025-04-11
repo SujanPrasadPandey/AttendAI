@@ -8,22 +8,23 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children }) => {
-    const { role, isLoading } = useContext(AuthContext);
-    const token = localStorage.getItem('access_token');
-  
-    if (!token) {
-      return <Navigate to="/signin" />;
-    }
-  
-    if (isLoading) {
-      return <div>Loading...</div>; // Show a spinner or placeholder
-    }
-  
-    if (!role || !allowedRoles.includes(role)) {
-      return <Navigate to="/dashboard" />;
-    }
-  
-    return children;
-  };
+  const { user, isLoading } = useContext(AuthContext);
+  const token = localStorage.getItem('access_token');
+
+  if (!token) {
+    return <Navigate to="/signin" />;
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>; // You can also use a spinner or another loading indicator.
+  }
+
+  // Check if user or user's role is not set, or if the user's role is not in allowedRoles.
+  if (!user || !user.role || !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  return children;
+};
 
 export default ProtectedRoute;

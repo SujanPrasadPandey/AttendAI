@@ -24,6 +24,7 @@ import ManageStudentPhotos from "./pages/admin/ManageStudentPhotos";
 import MarkAttendance from "./pages/teacher/MarkAttendance";
 import UnrecognizedFaces from "./pages/common/UnrecognizedFaces";
 import ReviewFaces from "./pages/admin/ReviewFaces";
+import ManageAttendance from "./pages/teacher/ManageAttendance";
 
 const App = () => {
   return (
@@ -90,6 +91,14 @@ const App = () => {
           element={
             <ProtectedRoute allowedRoles={["teacher"]}>
               <MarkAttendance />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/manage-attendance"
+          element={
+            <ProtectedRoute allowedRoles={["teacher"]}>
+              <ManageAttendance />
             </ProtectedRoute>
           }
         />
