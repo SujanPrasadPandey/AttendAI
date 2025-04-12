@@ -1,3 +1,4 @@
+// src/App.tsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/common/LandingPage";
 import SignIn from "./pages/common/SignIn";
@@ -26,7 +27,9 @@ import ReviewFaces from "./pages/admin/ReviewFaces";
 import ManageAttendance from "./pages/teacher/ManageAttendance";
 import StudentAttendanceViewer from "./pages/common/StudentAttendanceViewer";
 import TeacherLayout from "./components/teacher/TeacherLayout";
-import LeaveRequests from "./pages/common/LeaveRequests"; // Add this import
+import LeaveRequests from "./pages/common/LeaveRequests";
+import StudentLayout from "./components/student/StudentLayout";
+import StudentDashboardWrapper from "./components/student/StudentDashboardWrapper";
 
 const App = () => {
   return (
@@ -65,15 +68,6 @@ const App = () => {
             </ProtectedRoute>
           }
         />
-        {/* Add Leave Requests Route */}
-        <Route
-          path="/leave-requests"
-          element={
-            <ProtectedRoute allowedRoles={["student", "admin"]}>
-              <LeaveRequests />
-            </ProtectedRoute>
-          }
-        />
 
         {/* Admin-Only Routes */}
         <Route
@@ -94,17 +88,12 @@ const App = () => {
           <Route path="students/:id" element={<StudentDetails />} />
           <Route path="manage-classes" element={<ManageClasses />} />
           <Route path="manage-subjects" element={<ManageSubjects />} />
-          <Route
-            path="manage-teacher-access-requests"
-            element={<ManageTeacherAccessRequests />}
-          />
-          <Route
-            path="manage-student-photos"
-            element={<ManageStudentPhotos />}
-          />
+          <Route path="manage-teacher-access-requests" element={<ManageTeacherAccessRequests />} />
+          <Route path="manage-student-photos" element={<ManageStudentPhotos />} />
           <Route path="review-faces" element={<ReviewFaces />} />
           <Route path="unrecognized-faces" element={<UnrecognizedFaces />} />
           <Route path="manage-attendance" element={<ManageAttendance />} />
+          <Route path="leave-requests" element={<LeaveRequests />} /> {/* Nested for admins */}
         </Route>
 
         {/* Teacher-Only Routes with Layout */}
@@ -119,6 +108,20 @@ const App = () => {
           <Route index element={<ManageAttendance />} />
           <Route path="manage-attendance" element={<ManageAttendance />} />
           <Route path="mark-attendance" element={<MarkAttendance />} />
+          <Route path="profile" element={<ProfileSettings />} />
+        </Route>
+
+        {/* Student-Only Routes with Layout */}
+        <Route
+          path="/student"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <StudentLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<StudentDashboardWrapper />} />
+          <Route path="leave-requests" element={<LeaveRequests />} /> {/* Nested for students */}
           <Route path="profile" element={<ProfileSettings />} />
         </Route>
       </Routes>
