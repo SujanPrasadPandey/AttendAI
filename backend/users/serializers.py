@@ -33,21 +33,51 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
+# class UserProfileSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = CustomUser
+#         fields = [
+#             "id",
+#             "username",
+#             "email",
+#             "first_name",
+#             "last_name",
+#             "email_verified",
+#             "phone_number",
+#             "profile_picture",
+#             "role"
+#         ]
+#         read_only_fields = ["id", "email_verified", "username", "profile_picture"]
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
+    student_profile_id = serializers.SerializerMethodField()
+    teacher_profile_id = serializers.SerializerMethodField()
+    parent_profile_id = serializers.SerializerMethodField()
+
+    def get_student_profile_id(self, obj):
+        if obj.role == 'student' and hasattr(obj, 'studentprofile'):
+            return obj.studentprofile.id
+        return None
+
+    def get_teacher_profile_id(self, obj):
+        if obj.role == 'teacher' and hasattr(obj, 'teacherprofile'):
+            return obj.teacherprofile.id
+        return None
+
+    def get_parent_profile_id(self, obj):
+        if obj.role == 'parent' and hasattr(obj, 'parentprofile'):
+            return obj.parentprofile.id
+        return None
+
     class Meta:
         model = CustomUser
         fields = [
-            "id",
-            "username",
-            "email",
-            "first_name",
-            "last_name",
-            "email_verified",
-            "phone_number",
-            "profile_picture",
-            "role"
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'email_verified', 'phone_number', 'profile_picture', 'role',
+            'student_profile_id', 'teacher_profile_id', 'parent_profile_id'
         ]
-        read_only_fields = ["id", "email_verified", "username", "profile_picture"]
+        read_only_fields = ['id', 'email_verified', 'username', 'profile_picture']
 
 
 class EmailUpdateSerializer(serializers.ModelSerializer):

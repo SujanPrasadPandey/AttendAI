@@ -25,6 +25,7 @@ import MarkAttendance from "./pages/teacher/MarkAttendance";
 import UnrecognizedFaces from "./pages/common/UnrecognizedFaces";
 import ReviewFaces from "./pages/admin/ReviewFaces";
 import ManageAttendance from "./pages/teacher/ManageAttendance";
+import StudentAttendanceViewer from "./pages/common/StudentAttendanceViewer";
 
 const App = () => {
   return (
@@ -59,6 +60,16 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/student/:studentId/attendance"
+          element={
+            <ProtectedRoute
+              allowedRoles={["student", "teacher", "parent", "admin"]}
+            >
+              <StudentAttendanceViewer />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin-Only Routes */}
         <Route
@@ -79,8 +90,14 @@ const App = () => {
           <Route path="students/:id" element={<StudentDetails />} />
           <Route path="manage-classes" element={<ManageClasses />} />
           <Route path="manage-subjects" element={<ManageSubjects />} />
-          <Route path="manage-teacher-access-requests" element={<ManageTeacherAccessRequests />} />
-          <Route path="manage-student-photos" element={<ManageStudentPhotos />} />
+          <Route
+            path="manage-teacher-access-requests"
+            element={<ManageTeacherAccessRequests />}
+          />
+          <Route
+            path="manage-student-photos"
+            element={<ManageStudentPhotos />}
+          />
           <Route path="review-faces" element={<ReviewFaces />} />
           <Route path="unrecognized-faces" element={<UnrecognizedFaces />} />
           <Route path="manage-attendance" element={<ManageAttendance />} />
