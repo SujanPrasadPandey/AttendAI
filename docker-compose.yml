@@ -15,7 +15,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      network: host  # This makes the build process use the host network
     container_name: attendai-backend
     environment:
       POSTGRES_PASSWORD: postgres
@@ -38,7 +37,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      network: host
     container_name: attendai-frontend
     environment:
       CHOKIDAR_USEPOLLING: "true"
