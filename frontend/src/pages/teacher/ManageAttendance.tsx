@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { Link } from "react-router-dom"; // Added import for Link
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import apiClient from "../../utils/api";
 import { Pie } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import "../../components/custom-datepicker.css"
+import "../../components/custom-datepicker.css";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// Helper function to get Tailwind CSS classes based on attendance status for the colored dropdown (when not focused)
+// Helper function to get Tailwind CSS classes based on attendance status
 const getStatusClasses = (status: string) => {
   switch (status) {
     case "present":
@@ -48,12 +49,14 @@ interface Attendance {
   status: string;
 }
 
-// A dedicated dropdown for attendance status that uses neutral styling when open
 interface AttendanceDropdownProps {
   value: string;
   onChange: (status: string) => void;
 }
-const AttendanceDropdown: React.FC<AttendanceDropdownProps> = ({ value, onChange }) => {
+const AttendanceDropdown: React.FC<AttendanceDropdownProps> = ({
+  value,
+  onChange,
+}) => {
   const [isFocused, setIsFocused] = useState(false);
   const neutralClasses = "bg-gray-800 text-gray-100";
   const dropdownClasses = !isFocused ? getStatusClasses(value) : neutralClasses;
@@ -77,6 +80,48 @@ const AttendanceDropdown: React.FC<AttendanceDropdownProps> = ({ value, onChange
   );
 };
 
+// New StudentRow component to render each student row with a clickable username
+const StudentRow: React.FC<{
+  student: Student;
+  currentStatus: string;
+  handleStatusChange: (studentId: number, status: string) => void;
+}> = ({ student, currentStatus, handleStatusChange }) => {
+  return (
+    <tr className="hover:bg-gray-800">
+      <td className="border border-gray-700 px-4 py-2">
+        <img
+          src={student.user.profile_picture || "/default-profile.png"}
+          alt="Profile"
+          className="w-10 h-10 rounded-full object-cover"
+        />
+      </td>
+      <td className="border border-gray-700 px-4 py-2">
+        <Link
+          to={`/student/${student.id}/attendance`}
+          className="text-blue-400 hover:underline"
+        >
+          {student.user.username}
+        </Link>
+      </td>
+      <td className="border border-gray-700 px-4 py-2">
+        {student.user.email || "-"}
+      </td>
+      <td className="border border-gray-700 px-4 py-2">
+        {student.user.first_name || "-"}
+      </td>
+      <td className="border border-gray-700 px-4 py-2">
+        {student.user.last_name || "-"}
+      </td>
+      <td className="border border-gray-700 px-4 py-2">
+        <AttendanceDropdown
+          value={currentStatus}
+          onChange={(status: string) => handleStatusChange(student.id, status)}
+        />
+      </td>
+    </tr>
+  );
+};
+
 const ManageAttendance: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<Attendance[]>([]);
@@ -89,11 +134,11 @@ const ManageAttendance: React.FC = () => {
     const storedDate = localStorage.getItem("selectedDate");
     return storedDate ? new Date(storedDate) : new Date();
   });
-  const [classes, setClasses] = useState<{ id: number; name: string; grade_level: number }[]>([]);
-
-  // New states for sorting and grouping the attendance list
+  const [classes, setClasses] = useState<
+    { id: number; name: string; grade_level: number }[]
+  >([]);
   const [groupByStatus, setGroupByStatus] = useState<boolean>(true);
-  const [sortBy, setSortBy] = useState<string>("username"); // Options: username, first_name, or attendance
+  const [sortBy, setSortBy] = useState<string>("username");
   const [sortOrder, setSortOrder] = useState<string>("asc");
 
   // Fetch classes
@@ -104,14 +149,18 @@ const ManageAttendance: React.FC = () => {
       .catch((err) => console.error("Error fetching classes:", err));
   }, []);
 
-  // Fetch students and attendance records when class or date changes
+  // Fetch students and attendance records
   useEffect(() => {
     const formattedDate = selectedDate.toISOString().split("T")[0];
     if (selectedClass && formattedDate) {
       setLoading(true);
       Promise.all([
-        apiClient.get(`/api/school_data/studentprofiles/?school_class=${selectedClass}`),
-        apiClient.get(`/api/attendance/records/?school_class=${selectedClass}&date=${formattedDate}`),
+        apiClient.get(
+          `/api/school_data/studentprofiles/?school_class=${selectedClass}`
+        ),
+        apiClient.get(
+          `/api/attendance/records/?school_class=${selectedClass}&date=${formattedDate}`
+        ),
       ])
         .then(([studentsResponse, attendanceResponse]) => {
           setStudents(studentsResponse.data);
@@ -122,13 +171,13 @@ const ManageAttendance: React.FC = () => {
     }
   }, [selectedClass, selectedDate]);
 
-  // Persist class and date selections in localStorage
+  // Persist selections in localStorage
   useEffect(() => {
     if (selectedClass) localStorage.setItem("selectedClass", selectedClass);
     localStorage.setItem("selectedDate", selectedDate.toISOString());
   }, [selectedClass, selectedDate]);
 
-  // Create a map for quick attendance record lookup
+  // Attendance map for quick lookup
   const attendanceMap = useMemo(() => {
     const map = new Map<number, Attendance>();
     attendanceRecords.forEach((record) => map.set(record.student, record));
@@ -151,7 +200,12 @@ const ManageAttendance: React.FC = () => {
     labels: ["Present", "Absent", "Late", "Leave Approved"],
     datasets: [
       {
-        data: [attendanceStats.present, attendanceStats.absent, attendanceStats.late, attendanceStats.leave],
+        data: [
+          attendanceStats.present,
+          attendanceStats.absent,
+          attendanceStats.late,
+          attendanceStats.leave,
+        ],
         backgroundColor: ["#A6E3A1", "#F38BA8", "#FAB387", "#89B4FA"],
       },
     ],
@@ -161,15 +215,17 @@ const ManageAttendance: React.FC = () => {
   const filteredStudents = useMemo(() => {
     if (!searchTerm) return students;
     const lowerSearch = searchTerm.toLowerCase();
-    return students.filter((student) =>
-      student.user.username.toLowerCase().includes(lowerSearch) ||
-      (student.user.email && student.user.email.toLowerCase().includes(lowerSearch)) ||
-      student.user.first_name.toLowerCase().includes(lowerSearch) ||
-      student.user.last_name.toLowerCase().includes(lowerSearch)
+    return students.filter(
+      (student) =>
+        student.user.username.toLowerCase().includes(lowerSearch) ||
+        (student.user.email &&
+          student.user.email.toLowerCase().includes(lowerSearch)) ||
+        student.user.first_name.toLowerCase().includes(lowerSearch) ||
+        student.user.last_name.toLowerCase().includes(lowerSearch)
     );
   }, [students, searchTerm]);
 
-  // Sorting the students list based on the chosen criteria.
+  // Sort students
   const sortedStudents = useMemo(() => {
     const studentsCopy = [...filteredStudents];
     studentsCopy.sort((a, b) => {
@@ -185,24 +241,18 @@ const ManageAttendance: React.FC = () => {
         aField = (attendanceMap.get(a.id)?.status || "none").toLowerCase();
         bField = (attendanceMap.get(b.id)?.status || "none").toLowerCase();
       }
-      if (sortOrder === "asc") {
-        return aField.localeCompare(bField);
-      } else {
-        return bField.localeCompare(aField);
-      }
+      return sortOrder === "asc"
+        ? aField.localeCompare(bField)
+        : bField.localeCompare(aField);
     });
     return studentsCopy;
   }, [filteredStudents, sortBy, sortOrder, attendanceMap]);
 
-  // Group the sorted students by attendance status
+  // Group students by attendance status
   const groupedStudents = useMemo(() => {
-    // Define a group order for consistency
     const order = ["present", "absent", "late", "leave", "none"];
     const groups: Record<string, Student[]> = {};
-    // Initialize groups
-    order.forEach((group) => {
-      groups[group] = [];
-    });
+    order.forEach((group) => (groups[group] = []));
     sortedStudents.forEach((student) => {
       const status = (attendanceMap.get(student.id)?.status || "none").toLowerCase();
       groups[status].push(student);
@@ -210,10 +260,12 @@ const ManageAttendance: React.FC = () => {
     return groups;
   }, [sortedStudents, attendanceMap]);
 
-  // Update attendance status function remains the same.
+  // Handle attendance status change
   const handleStatusChange = async (studentId: number, status: string) => {
     try {
-      const existingRecord = attendanceRecords.find((record) => record.student === studentId);
+      const existingRecord = attendanceRecords.find(
+        (record) => record.student === studentId
+      );
       const formattedDate = selectedDate.toISOString().split("T")[0];
       const data = {
         student: studentId,
@@ -225,7 +277,9 @@ const ManageAttendance: React.FC = () => {
       if (existingRecord) {
         await apiClient.put(`/api/attendance/records/${existingRecord.id}/`, data);
         setAttendanceRecords((prev) =>
-          prev.map((record) => (record.id === existingRecord.id ? { ...record, status } : record))
+          prev.map((record) =>
+            record.id === existingRecord.id ? { ...record, status } : record
+          )
         );
       } else {
         const response = await apiClient.post(`/api/attendance/records/`, data);
@@ -249,9 +303,8 @@ const ManageAttendance: React.FC = () => {
         </div>
       )}
 
-      {/* Controls for Class, Date, Sorting, and Grouping */}
+      {/* Controls */}
       <div className="mb-4 flex flex-col md:flex-row md:space-x-4 items-end">
-        {/* Class Dropdown */}
         <div className="relative w-full md:w-1/3">
           <select
             value={selectedClass}
@@ -271,7 +324,6 @@ const ManageAttendance: React.FC = () => {
             </svg>
           </div>
         </div>
-        {/* Date Picker */}
         <div className="w-full md:w-1/3">
           <DatePicker
             selected={selectedDate}
@@ -282,7 +334,6 @@ const ManageAttendance: React.FC = () => {
             dayClassName={() => "react-datepicker-day-custom"}
           />
         </div>
-        {/* Sorting Controls */}
         <div className="w-full md:w-1/3 flex flex-col space-y-2">
           <label className="text-gray-200 text-sm">Sort By:</label>
           <select
@@ -335,48 +386,49 @@ const ManageAttendance: React.FC = () => {
       {loading ? (
         <p className="text-gray-100">Loading...</p>
       ) : groupByStatus ? (
-        // Grouped View by Attendance Status
+        // Grouped View
         Object.entries(groupedStudents).map(([group, groupStudents]) => (
           <div key={group} className="mb-6">
             <h3 className="text-xl font-semibold text-gray-100 mb-2 capitalize">
-              {group === "none" ? "No Status Selected" : group} ({groupStudents.length})
+              {group === "none" ? "No Status Selected" : group} (
+              {groupStudents.length})
             </h3>
             {groupStudents.length > 0 ? (
               <div className="overflow-auto">
                 <table className="min-w-full border-collapse">
                   <thead className="bg-gray-800">
                     <tr>
-                      <th className="border border-gray-700 px-4 py-2 text-gray-100">Photo</th>
-                      <th className="border border-gray-700 px-4 py-2 text-gray-100">Username</th>
-                      <th className="border border-gray-700 px-4 py-2 text-gray-100">Email</th>
-                      <th className="border border-gray-700 px-4 py-2 text-gray-100">First Name</th>
-                      <th className="border border-gray-700 px-4 py-2 text-gray-100">Last Name</th>
-                      <th className="border border-gray-700 px-4 py-2 text-gray-100">Attendance Status</th>
+                      <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                        Photo
+                      </th>
+                      <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                        Username
+                      </th>
+                      <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                        Email
+                      </th>
+                      <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                        First Name
+                      </th>
+                      <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                        Last Name
+                      </th>
+                      <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                        Attendance Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-gray-900 text-gray-100">
                     {groupStudents.map((student) => {
-                      const currentStatus = (attendanceMap.get(student.id)?.status) || "";
+                      const currentStatus =
+                        (attendanceMap.get(student.id)?.status) || "";
                       return (
-                        <tr key={student.id} className="hover:bg-gray-800">
-                          <td className="border border-gray-700 px-4 py-2">
-                            <img
-                              src={student.user.profile_picture || "/default-profile.png"}
-                              alt="Profile"
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
-                          </td>
-                          <td className="border border-gray-700 px-4 py-2">{student.user.username}</td>
-                          <td className="border border-gray-700 px-4 py-2">{student.user.email || "-"}</td>
-                          <td className="border border-gray-700 px-4 py-2">{student.user.first_name || "-"}</td>
-                          <td className="border border-gray-700 px-4 py-2">{student.user.last_name || "-"}</td>
-                          <td className="border border-gray-700 px-4 py-2">
-                            <AttendanceDropdown
-                              value={currentStatus}
-                              onChange={(status: string) => handleStatusChange(student.id, status)}
-                            />
-                          </td>
-                        </tr>
+                        <StudentRow
+                          key={student.id}
+                          student={student}
+                          currentStatus={currentStatus}
+                          handleStatusChange={handleStatusChange}
+                        />
                       );
                     })}
                   </tbody>
@@ -388,42 +440,40 @@ const ManageAttendance: React.FC = () => {
           </div>
         ))
       ) : (
-        // Sorted but not grouped view (plain table)
+        // Non-Grouped View
         <div className="overflow-auto">
           <table className="min-w-full border-collapse">
             <thead className="bg-gray-800">
               <tr>
-                <th className="border border-gray-700 px-4 py-2 text-gray-100">Photo</th>
-                <th className="border border-gray-700 px-4 py-2 text-gray-100">Username</th>
-                <th className="border border-gray-700 px-4 py-2 text-gray-100">Email</th>
-                <th className="border border-gray-700 px-4 py-2 text-gray-100">First Name</th>
-                <th className="border border-gray-700 px-4 py-2 text-gray-100">Last Name</th>
-                <th className="border border-gray-700 px-4 py-2 text-gray-100">Attendance Status</th>
+                <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                  Photo
+                </th>
+                <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                  Username
+                </th>
+                <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                  Email
+                </th>
+                <th className="border -gray-700 px-4 py-2 text-gray-100">First Name</th>
+                <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                  Last Name
+                </th>
+                <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                  Attendance Status
+                </th>
               </tr>
             </thead>
             <tbody className="bg-gray-900 text-gray-100">
               {sortedStudents.map((student) => {
-                const currentStatus = (attendanceMap.get(student.id)?.status) || "";
+                const currentStatus =
+                  (attendanceMap.get(student.id)?.status) || "";
                 return (
-                  <tr key={student.id} className="hover:bg-gray-800">
-                    <td className="border border-gray-700 px-4 py-2">
-                      <img
-                        src={student.user.profile_picture || "/default-profile.png"}
-                        alt="Profile"
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    </td>
-                    <td className="border border-gray-700 px-4 py-2">{student.user.username}</td>
-                    <td className="border border-gray-700 px-4 py-2">{student.user.email || "-"}</td>
-                    <td className="border border-gray-700 px-4 py-2">{student.user.first_name || "-"}</td>
-                    <td className="border border-gray-700 px-4 py-2">{student.user.last_name || "-"}</td>
-                    <td className="border border-gray-700 px-4 py-2">
-                      <AttendanceDropdown
-                        value={currentStatus}
-                        onChange={(status: string) => handleStatusChange(student.id, status)}
-                      />
-                    </td>
-                  </tr>
+                  <StudentRow
+                    key={student.id}
+                    student={student}
+                    currentStatus={currentStatus}
+                    handleStatusChange={handleStatusChange}
+                  />
                 );
               })}
             </tbody>
