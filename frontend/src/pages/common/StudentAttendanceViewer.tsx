@@ -1,6 +1,6 @@
 // src/pages/common/StudentAttendanceViewer.tsx
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import apiClient from '../../utils/api';
 import StudentAttendanceDashboard from '../../components/student/StudentAttendanceDashboard';
 
@@ -10,6 +10,13 @@ const StudentAttendanceViewer: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true); // Loading state for student name
   const [error, setError] = useState<string | null>(null); // Error state
 
+  // Read username from localStorage (adjust key if needed)
+  const username = localStorage.getItem("username") || "";
+  // Determine back link: if admin, go to admin route; otherwise, teacher route.
+  const backLink = username.toLowerCase() === "admin" 
+    ? "/admin/manage-attendance" 
+    : "/teacher/manage-attendance";
+
   useEffect(() => {
     if (studentId) {
       setLoading(true);
@@ -17,33 +24,47 @@ const StudentAttendanceViewer: React.FC = () => {
       apiClient.get(`/api/school_data/studentprofiles/${studentId}/`)
         .then(response => {
           if (response.data && response.data.user) {
-             setStudentName(`${response.data.user.first_name || ''} ${response.data.user.last_name || ''}`.trim());
+            setStudentName(
+              `${response.data.user.first_name || ''} ${response.data.user.last_name || ''}`.trim()
+            );
           } else {
-              setStudentName('Student Profile Incomplete');
+            setStudentName('Student Profile Incomplete');
           }
           setLoading(false);
         })
         .catch(() => {
-            setStudentName('Unknown Student');
-            setError('Failed to load student information.');
-            setLoading(false);
+          setStudentName('Unknown Student');
+          setError('Failed to load student information.');
+          setLoading(false);
         });
     } else {
-        setLoading(false); // No ID, so not loading
+      setLoading(false); // No ID, so not loading
     }
   }, [studentId]);
 
-  // Container with dark mode styling and padding
   return (
     <div className="container mx-auto p-4 dark:bg-gray-900 dark:text-gray-100 min-h-screen">
+      {/* Conditionally render the Back link. If you wish to remove it entirely for admin, you can do:
+          {username.toLowerCase() !== "admin" && ( ... )} */}
+      <div className="mb-4">
+        <Link to={backLink} className="text-blue-400 hover:underline">
+          &larr; Back to Manage Attendance
+        </Link>
+      </div>
+
       {loading && (
-           <h1 className="text-2xl font-bold mb-6 text-center text-gray-700 dark:text-gray-300">Loading Student Info...</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center text-gray-700 dark:text-gray-300">
+          Loading Student Info...
+        </h1>
       )}
 
       {!loading && error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 dark:bg-red-900 dark:border-red-600 dark:text-red-300 px-4 py-3 rounded relative mb-6" role="alert">
-                <span className="block sm:inline">{error}</span>
-            </div>
+        <div
+          className="bg-red-100 border border-red-400 text-red-700 dark:bg-red-900 dark:border-red-600 dark:text-red-300 px-4 py-3 rounded relative mb-6"
+          role="alert"
+        >
+          <span className="block sm:inline">{error}</span>
+        </div>
       )}
 
       {!loading && !error && studentId && (

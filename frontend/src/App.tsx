@@ -26,6 +26,7 @@ import UnrecognizedFaces from "./pages/common/UnrecognizedFaces";
 import ReviewFaces from "./pages/admin/ReviewFaces";
 import ManageAttendance from "./pages/teacher/ManageAttendance";
 import StudentAttendanceViewer from "./pages/common/StudentAttendanceViewer";
+import TeacherLayout from "./components/teacher/TeacherLayout";
 
 const App = () => {
   return (
@@ -43,9 +44,7 @@ const App = () => {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute
-              allowedRoles={["student", "teacher", "parent", "admin"]}
-            >
+            <ProtectedRoute allowedRoles={["student", "teacher", "parent", "admin"]}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -53,19 +52,16 @@ const App = () => {
         <Route
           path="/profile"
           element={
-            <ProtectedRoute
-              allowedRoles={["student", "teacher", "parent", "admin"]}
-            >
+            <ProtectedRoute allowedRoles={["student", "teacher", "parent", "admin"]}>
               <ProfileSettings />
             </ProtectedRoute>
           }
         />
+        {/* Common route for student attendance view */}
         <Route
           path="/student/:studentId/attendance"
           element={
-            <ProtectedRoute
-              allowedRoles={["student", "teacher", "parent", "admin"]}
-            >
+            <ProtectedRoute allowedRoles={["student", "teacher", "parent", "admin"]}>
               <StudentAttendanceViewer />
             </ProtectedRoute>
           }
@@ -103,31 +99,22 @@ const App = () => {
           <Route path="manage-attendance" element={<ManageAttendance />} />
         </Route>
 
-        {/* Teacher-Only Routes */}
+        {/* Teacher-Only Routes with Layout */}
         <Route
-          path="/teacher/mark-attendance"
+          path="/teacher"
           element={
             <ProtectedRoute allowedRoles={["teacher"]}>
-              <MarkAttendance />
+              <TeacherLayout />
             </ProtectedRoute>
           }
-        />
-        <Route
-          path="/teacher/manage-attendance"
-          element={
-            <ProtectedRoute allowedRoles={["teacher", "admin"]}>
-              <ManageAttendance />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/teacher/unrecognized-faces"
-          element={
-            <ProtectedRoute allowedRoles={["teacher"]}>
-              <UnrecognizedFaces />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route index element={<ManageAttendance />} />
+          <Route path="manage-attendance" element={<ManageAttendance />} />
+          <Route path="mark-attendance" element={<MarkAttendance />} />
+          <Route path="profile" element={<ProfileSettings />} />
+          {/* Note: Removed the nested student attendance route here 
+              because we're using the common route (/student/:studentId/attendance) */}
+        </Route>
       </Routes>
     </Router>
   );

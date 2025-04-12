@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom"; // Added import for Link
+import { Link } from "react-router-dom"; // Updated import for Link remains the same
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import apiClient from "../../utils/api";
@@ -80,7 +80,7 @@ const AttendanceDropdown: React.FC<AttendanceDropdownProps> = ({
   );
 };
 
-// New StudentRow component to render each student row with a clickable username
+// Updated StudentRow component to render each student row with a clickable username
 const StudentRow: React.FC<{
   student: Student;
   currentStatus: string;
@@ -121,6 +121,49 @@ const StudentRow: React.FC<{
     </tr>
   );
 };
+
+
+// // Updated StudentRow component to render each student row with a clickable username
+// const StudentRow: React.FC<{
+//   student: Student;
+//   currentStatus: string;
+//   handleStatusChange: (studentId: number, status: string) => void;
+// }> = ({ student, currentStatus, handleStatusChange }) => {
+//   return (
+//     <tr className="hover:bg-gray-800">
+//       <td className="border border-gray-700 px-4 py-2">
+//         <img
+//           src={student.user.profile_picture || "/default-profile.png"}
+//           alt="Profile"
+//           className="w-10 h-10 rounded-full object-cover"
+//         />
+//       </td>
+//       <td className="border border-gray-700 px-4 py-2">
+//         <Link
+//           to={`/teacher/student/${student.id}/attendance`}
+//           className="text-blue-400 hover:underline"
+//         >
+//           {student.user.username}
+//         </Link>
+//       </td>
+//       <td className="border border-gray-700 px-4 py-2">
+//         {student.user.email || "-"}
+//       </td>
+//       <td className="border border-gray-700 px-4 py-2">
+//         {student.user.first_name || "-"}
+//       </td>
+//       <td className="border border-gray-700 px-4 py-2">
+//         {student.user.last_name || "-"}
+//       </td>
+//       <td className="border border-gray-700 px-4 py-2">
+//         <AttendanceDropdown
+//           value={currentStatus}
+//           onChange={(status: string) => handleStatusChange(student.id, status)}
+//         />
+//       </td>
+//     </tr>
+//   );
+// };
 
 const ManageAttendance: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -254,7 +297,8 @@ const ManageAttendance: React.FC = () => {
     const groups: Record<string, Student[]> = {};
     order.forEach((group) => (groups[group] = []));
     sortedStudents.forEach((student) => {
-      const status = (attendanceMap.get(student.id)?.status || "none").toLowerCase();
+      const status =
+        (attendanceMap.get(student.id)?.status || "none").toLowerCase();
       groups[status].push(student);
     });
     return groups;
@@ -421,7 +465,7 @@ const ManageAttendance: React.FC = () => {
                   <tbody className="bg-gray-900 text-gray-100">
                     {groupStudents.map((student) => {
                       const currentStatus =
-                        (attendanceMap.get(student.id)?.status) || "";
+                        attendanceMap.get(student.id)?.status || "";
                       return (
                         <StudentRow
                           key={student.id}
@@ -454,7 +498,9 @@ const ManageAttendance: React.FC = () => {
                 <th className="border border-gray-700 px-4 py-2 text-gray-100">
                   Email
                 </th>
-                <th className="border -gray-700 px-4 py-2 text-gray-100">First Name</th>
+                <th className="border border-gray-700 px-4 py-2 text-gray-100">
+                  First Name
+                </th>
                 <th className="border border-gray-700 px-4 py-2 text-gray-100">
                   Last Name
                 </th>
@@ -466,7 +512,7 @@ const ManageAttendance: React.FC = () => {
             <tbody className="bg-gray-900 text-gray-100">
               {sortedStudents.map((student) => {
                 const currentStatus =
-                  (attendanceMap.get(student.id)?.status) || "";
+                  attendanceMap.get(student.id)?.status || "";
                 return (
                   <StudentRow
                     key={student.id}
