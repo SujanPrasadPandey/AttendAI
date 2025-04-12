@@ -1,4 +1,3 @@
-// frontend/src/components/admin/AdminLayout.tsx
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 
@@ -10,7 +9,7 @@ const AdminLayout: React.FC = () => {
         <ul className="space-y-4">
         <li>
             <NavLink
-              to="/admin"
+              to="/admin/manage-attendance"
               end
               className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >

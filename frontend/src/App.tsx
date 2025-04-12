@@ -83,6 +83,7 @@ const App = () => {
           <Route path="manage-student-photos" element={<ManageStudentPhotos />} />
           <Route path="review-faces" element={<ReviewFaces />} />
           <Route path="unrecognized-faces" element={<UnrecognizedFaces />} />
+          <Route path="manage-attendance" element={<ManageAttendance />} />
         </Route>
 
         {/* Teacher-Only Routes */}
@@ -97,7 +98,7 @@ const App = () => {
         <Route
           path="/teacher/manage-attendance"
           element={
-            <ProtectedRoute allowedRoles={["teacher"]}>
+            <ProtectedRoute allowedRoles={["teacher", "admin"]}>
               <ManageAttendance />
             </ProtectedRoute>
           }
