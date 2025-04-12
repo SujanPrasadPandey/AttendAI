@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.tsx
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import apiClient from '../utils/api';
 
 interface CustomUser {
@@ -53,3 +53,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);

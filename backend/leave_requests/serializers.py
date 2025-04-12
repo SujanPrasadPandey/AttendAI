@@ -9,9 +9,11 @@ class LeaveStatusEnum(Enum):
     denied = 'denied'
 
 class LeaveRequestSerializer(serializers.ModelSerializer):
+    student = serializers.PrimaryKeyRelatedField(read_only=True)
     # Use the custom enum for the status field.
     status = serializers.ChoiceField(
-        choices=[(tag.value, tag.name) for tag in LeaveStatusEnum]
+        choices=[(tag.value, tag.name) for tag in LeaveStatusEnum],
+        read_only=True
     )
 
     class Meta:

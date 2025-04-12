@@ -1,4 +1,3 @@
-// src/App.tsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/common/LandingPage";
 import SignIn from "./pages/common/SignIn";
@@ -27,6 +26,7 @@ import ReviewFaces from "./pages/admin/ReviewFaces";
 import ManageAttendance from "./pages/teacher/ManageAttendance";
 import StudentAttendanceViewer from "./pages/common/StudentAttendanceViewer";
 import TeacherLayout from "./components/teacher/TeacherLayout";
+import LeaveRequests from "./pages/common/LeaveRequests"; // Add this import
 
 const App = () => {
   return (
@@ -57,12 +57,20 @@ const App = () => {
             </ProtectedRoute>
           }
         />
-        {/* Common route for student attendance view */}
         <Route
           path="/student/:studentId/attendance"
           element={
             <ProtectedRoute allowedRoles={["student", "teacher", "parent", "admin"]}>
               <StudentAttendanceViewer />
+            </ProtectedRoute>
+          }
+        />
+        {/* Add Leave Requests Route */}
+        <Route
+          path="/leave-requests"
+          element={
+            <ProtectedRoute allowedRoles={["student", "admin"]}>
+              <LeaveRequests />
             </ProtectedRoute>
           }
         />
@@ -112,8 +120,6 @@ const App = () => {
           <Route path="manage-attendance" element={<ManageAttendance />} />
           <Route path="mark-attendance" element={<MarkAttendance />} />
           <Route path="profile" element={<ProfileSettings />} />
-          {/* Note: Removed the nested student attendance route here 
-              because we're using the common route (/student/:studentId/attendance) */}
         </Route>
       </Routes>
     </Router>
