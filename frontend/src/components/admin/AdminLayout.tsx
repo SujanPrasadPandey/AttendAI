@@ -27,6 +27,15 @@ const AdminLayout: React.FC = () => {
           </li>
           <li>
             <NavLink
+              to="/admin/leave-requests"
+              end
+              className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
+            >
+              Leave Requests
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/admin/manage/teacher"
               className={({ isActive }) => (isActive ? 'font-bold text-blue-400' : 'text-gray-300 hover:text-blue-400')}
             >

@@ -15,7 +15,7 @@ import BulkAddUsers from "./pages/admin/BulkAddUsers";
 import BulkRemoveUsers from "./pages/admin/BulkRemoveUsers";
 import AdminLayout from "./components/admin/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AdminDashboard from "./pages/admin/AdminDashboard";
+// import AdminDashboard from "./pages/admin/AdminDashboard";
 import StudentDetails from "./pages/admin/StudentDetails";
 import ManageClasses from "./pages/admin/ManageClasses";
 import ManageSubjects from "./pages/admin/ManageSubjects";
@@ -78,7 +78,7 @@ const App = () => {
             </ProtectedRoute>
           }
         >
-          <Route index element={<AdminDashboard />} />
+          <Route index element={<ManageAttendance />} />
           <Route path="manage/:role" element={<ManageUsers />} />
           <Route path="add/:role" element={<AddUser />} />
           <Route path="edit/:role/:userId" element={<EditUser />} />
@@ -93,7 +93,7 @@ const App = () => {
           <Route path="review-faces" element={<ReviewFaces />} />
           <Route path="unrecognized-faces" element={<UnrecognizedFaces />} />
           <Route path="manage-attendance" element={<ManageAttendance />} />
-          <Route path="leave-requests" element={<LeaveRequests />} /> {/* Nested for admins */}
+          <Route path="leave-requests" element={<LeaveRequests />} /> 
         </Route>
 
         {/* Teacher-Only Routes with Layout */}
@@ -121,7 +121,7 @@ const App = () => {
           }
         >
           <Route index element={<StudentDashboardWrapper />} />
-          <Route path="leave-requests" element={<LeaveRequests />} /> {/* Nested for students */}
+          <Route path="leave-requests" element={<LeaveRequests />} />
           <Route path="profile" element={<ProfileSettings />} />
         </Route>
       </Routes>
