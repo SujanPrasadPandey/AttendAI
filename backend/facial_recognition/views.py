@@ -257,11 +257,26 @@ class AssignUnrecognizedFaceView(GenericAPIView):
                 face.identified_student = student
                 face.save()
                 update_embedding_with_new_face(student, face.embedding)
-                return Response({"message": "Face assigned and embedding updated."}, status=status.HTTP_200_OK)
+                # Create a FaceImage object to make the photo visible in the frontend
+                FaceImage.objects.create(
+                    student=student,
+                    image=face.image,
+                    embedding=face.embedding
+                )
+                # Optionally, mark the UnrecognizedFace as discarded
+                # face.discarded = True
+                # face.save()
+                return Response(
+                    {"message": "Face assigned, embedding updated, and image added to student's photos."},
+                    status=status.HTTP_200_OK
+                )
             else:
-                return Response({"message": "Face remains unassigned for admin review."}, status=status.HTTP_200_OK)
+                return Response(
+                    {"message": "Face remains unassigned for admin review."},
+                    status=status.HTTP_200_OK
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    
 # List review faces
 class ReviewFaceListView(ListAPIView):
     permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
