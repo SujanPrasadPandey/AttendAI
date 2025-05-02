@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  Button,
+  TouchableOpacity,
   Image,
   StyleSheet,
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
@@ -51,15 +52,21 @@ const MarkAttendance: React.FC = () => {
       const token = await AsyncStorage.getItem('access_token');
       const formData = new FormData();
 
-      images.forEach((img, index) => {
-        const uriParts = img.uri.split('.');
-        const fileType = uriParts[uriParts.length - 1];
+      for (let index = 0; index < images.length; index++) {
+        const img = images[index];
+
+        const manipulated = await ImageManipulator.manipulateAsync(
+          img.uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+
         formData.append('images', {
-          uri: img.uri,
-          name: `photo${index}.${fileType}`,
-          type: `image/${fileType}`,
+          uri: manipulated.uri,
+          name: `photo${index}.jpg`,
+          type: 'image/jpeg',
         } as any);
-      });
+      }
 
       formData.append('status', status);
 
@@ -87,11 +94,17 @@ const MarkAttendance: React.FC = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Mark Attendance</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerText}>📸 Mark Attendance</Text>
+      </View>
 
       <View style={styles.buttonRow}>
-        <Button title="Take Photo" onPress={takePhoto} />
-        <Button title="Pick from Gallery" onPress={pickImages} />
+        <TouchableOpacity style={styles.button} onPress={takePhoto}>
+          <Text style={styles.buttonText}>Take Photo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={pickImages}>
+          <Text style={styles.buttonText}>Pick from Gallery</Text>
+        </TouchableOpacity>
       </View>
 
       {images.length > 0 && (
@@ -99,26 +112,47 @@ const MarkAttendance: React.FC = () => {
           <Text style={styles.previewLabel}>Preview:</Text>
           <ScrollView horizontal>
             {images.map((img, index) => (
-              <Image key={index} source={{ uri: img.uri }} style={styles.imagePreview} />
+              <View key={index} style={styles.imageCard}>
+                <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+              </View>
             ))}
           </ScrollView>
         </View>
       )}
 
-      <View style={styles.buttonRow}>
-        <Button title="On Time" onPress={() => setStatus('onTime')} />
-        <Button title="Late" onPress={() => setStatus('late')} />
+      <View style={styles.statusRow}>
+        {['onTime', 'late'].map((s) => (
+          <TouchableOpacity
+            key={s}
+            style={[
+              styles.statusButton,
+              status === s && styles.statusButtonSelected,
+            ]}
+            onPress={() => setStatus(s as 'onTime' | 'late')}
+          >
+            <Text
+              style={[
+                styles.statusButtonText,
+                status === s && styles.statusButtonTextSelected,
+              ]}
+            >
+              {s === 'onTime' ? 'On Time' : 'Late'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
         <ActivityIndicator size="large" color="#89B5FA" />
       ) : (
-        <Button title="Submit Attendance" onPress={uploadAttendance} />
+        <TouchableOpacity style={[styles.button, styles.submitButton]} onPress={uploadAttendance}>
+          <Text style={styles.buttonText}>Submit Attendance</Text>
+        </TouchableOpacity>
       )}
 
-      <View style={{ marginTop: 20 }}>
-        <Button title="Log Out" color="#EF4444" onPress={handleLogout} />
-      </View>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutButtonText}>Log Out</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -132,17 +166,39 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 26,
-    color: '#89B5FA',
+  header: {
+    paddingTop: 50,
+    paddingBottom: 20,
+    alignItems: 'center',
+  },
+  headerText: {
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#89B5FA',
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginVertical: 10,
+  },
+  button: {
+    backgroundColor: '#89B5FA',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginHorizontal: 5,
+    alignItems: 'center',
+    minWidth: 140,
+  },
+  submitButton: {
+    marginTop: 20,
+    alignSelf: 'center',
+    width: '80%',
+  },
+  buttonText: {
+    color: '#1E1E2E',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   previewContainer: {
     marginVertical: 20,
@@ -150,11 +206,57 @@ const styles = StyleSheet.create({
   previewLabel: {
     color: '#CDD6F4',
     marginBottom: 10,
+    fontSize: 16,
+  },
+  imageCard: {
+    marginRight: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#2E2E3E',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 4,
   },
   imagePreview: {
     width: 100,
     height: 100,
-    marginRight: 10,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  statusButton: {
+    borderWidth: 1,
+    borderColor: '#89B5FA',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 5,
+  },
+  statusButtonSelected: {
+    backgroundColor: '#89B5FA',
+  },
+  statusButtonText: {
+    color: '#89B5FA',
+  },
+  statusButtonTextSelected: {
+    color: '#1E1E2E',
+    fontWeight: 'bold',
+  },
+  logoutButton: {
+    marginTop: 30,
+    backgroundColor: '#EF4444',
+    padding: 12,
     borderRadius: 8,
+    alignItems: 'center',
+    alignSelf: 'center',
+    width: '80%',
+  },
+  logoutButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
   },
 });
