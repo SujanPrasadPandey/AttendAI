@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,18 +8,20 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { useNavigation } from '@react-navigation/native';
-import { BACKEND_URL } from '@env';
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useNavigation } from "@react-navigation/native";
+import { BACKEND_URL } from "@env";
+import { useAuth } from "../contexts/AuthContext";
 
 const MarkAttendance: React.FC = () => {
   const navigation = useNavigation();
+  const { logout } = useAuth();
   const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [status, setStatus] = useState<'onTime' | 'late'>('onTime');
+  const [status, setStatus] = useState<"onTime" | "late">("onTime");
   const [loading, setLoading] = useState(false);
 
   const pickImages = async () => {
@@ -43,13 +45,13 @@ const MarkAttendance: React.FC = () => {
 
   const uploadAttendance = async () => {
     if (images.length === 0) {
-      Alert.alert('Error', 'Please select at least one image.');
+      Alert.alert("Error", "Please select at least one image.");
       return;
     }
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem('access_token');
+      const token = await AsyncStorage.getItem("access_token");
       const formData = new FormData();
 
       for (let index = 0; index < images.length; index++) {
@@ -61,35 +63,34 @@ const MarkAttendance: React.FC = () => {
           { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-        formData.append('images', {
+        formData.append("images", {
           uri: manipulated.uri,
           name: `photo${index}.jpg`,
-          type: 'image/jpeg',
+          type: "image/jpeg",
         } as any);
       }
 
-      formData.append('status', status);
+      formData.append("status", status);
 
       await axios.post(`${BACKEND_URL}/api/facial_recognition/mark/`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
       });
 
-      Alert.alert('Success', 'Attendance marked successfully!');
+      Alert.alert("Success", "Attendance marked successfully!");
       setImages([]);
     } catch (error) {
-      console.error('Upload failed:', error);
-      Alert.alert('Error', 'Failed to mark attendance.');
+      console.error("Upload failed:", error);
+      Alert.alert("Error", "Failed to mark attendance.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['access_token', 'refresh_token', 'username']);
-    navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
+    await logout();
   };
 
   return (
@@ -121,14 +122,14 @@ const MarkAttendance: React.FC = () => {
       )}
 
       <View style={styles.statusRow}>
-        {['onTime', 'late'].map((s) => (
+        {["onTime", "late"].map((s) => (
           <TouchableOpacity
             key={s}
             style={[
               styles.statusButton,
               status === s && styles.statusButtonSelected,
             ]}
-            onPress={() => setStatus(s as 'onTime' | 'late')}
+            onPress={() => setStatus(s as "onTime" | "late")}
           >
             <Text
               style={[
@@ -136,7 +137,7 @@ const MarkAttendance: React.FC = () => {
                 status === s && styles.statusButtonTextSelected,
               ]}
             >
-              {s === 'onTime' ? 'On Time' : 'Late'}
+              {s === "onTime" ? "On Time" : "Late"}
             </Text>
           </TouchableOpacity>
         ))}
@@ -145,7 +146,10 @@ const MarkAttendance: React.FC = () => {
       {loading ? (
         <ActivityIndicator size="large" color="#89B5FA" />
       ) : (
-        <TouchableOpacity style={[styles.button, styles.submitButton]} onPress={uploadAttendance}>
+        <TouchableOpacity
+          style={[styles.button, styles.submitButton]}
+          onPress={uploadAttendance}
+        >
           <Text style={styles.buttonText}>Submit Attendance</Text>
         </TouchableOpacity>
       )}
@@ -162,58 +166,58 @@ export default MarkAttendance;
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#1E1E2E',
+    backgroundColor: "#1E1E2E",
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   header: {
     paddingTop: 50,
     paddingBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerText: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#89B5FA',
+    fontWeight: "bold",
+    color: "#89B5FA",
   },
   buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginVertical: 10,
   },
   button: {
-    backgroundColor: '#89B5FA',
+    backgroundColor: "#89B5FA",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     marginHorizontal: 5,
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: 140,
   },
   submitButton: {
     marginTop: 20,
-    alignSelf: 'center',
-    width: '80%',
+    alignSelf: "center",
+    width: "80%",
   },
   buttonText: {
-    color: '#1E1E2E',
-    fontWeight: 'bold',
-    textAlign: 'center',
+    color: "#1E1E2E",
+    fontWeight: "bold",
+    textAlign: "center",
   },
   previewContainer: {
     marginVertical: 20,
   },
   previewLabel: {
-    color: '#CDD6F4',
+    color: "#CDD6F4",
     marginBottom: 10,
     fontSize: 16,
   },
   imageCard: {
     marginRight: 10,
     borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#2E2E3E',
-    shadowColor: '#000',
+    overflow: "hidden",
+    backgroundColor: "#2E2E3E",
+    shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
@@ -224,39 +228,39 @@ const styles = StyleSheet.create({
     height: 100,
   },
   statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginVertical: 10,
   },
   statusButton: {
     borderWidth: 1,
-    borderColor: '#89B5FA',
+    borderColor: "#89B5FA",
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginHorizontal: 5,
   },
   statusButtonSelected: {
-    backgroundColor: '#89B5FA',
+    backgroundColor: "#89B5FA",
   },
   statusButtonText: {
-    color: '#89B5FA',
+    color: "#89B5FA",
   },
   statusButtonTextSelected: {
-    color: '#1E1E2E',
-    fontWeight: 'bold',
+    color: "#1E1E2E",
+    fontWeight: "bold",
   },
   logoutButton: {
     marginTop: 30,
-    backgroundColor: '#EF4444',
+    backgroundColor: "#EF4444",
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
-    alignSelf: 'center',
-    width: '80%',
+    alignItems: "center",
+    alignSelf: "center",
+    width: "80%",
   },
   logoutButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: "#FFF",
+    fontWeight: "bold",
   },
 });
