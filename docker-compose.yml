@@ -4,6 +4,11 @@
 # docker exec school2-backend python manage.py migrate
 # docker exec -it school1-backend bash
 
+
+# docker-compose -f docker-compose-school2.yml -p school2 up
+# docker exec -it school2-backend bash
+
+
 services:
   db:
     image: postgres:17.3-alpine3.21
