@@ -8,6 +8,7 @@
 # docker-compose -f docker-compose-school2.yml -p school2 up
 # docker exec -it school2-backend bash
 
+# http://172.23.0.4:5173/signin
 
 services:
   db:
