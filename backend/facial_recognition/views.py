@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from .models import FaceImage, FaceEmbedding, StudentProfile, UnrecognizedFace, ReviewFace
 from .serializers import (
     EnrollFaceSerializer, MarkAttendanceSerializer, AssignUnrecognizedFaceSerializer,
-    ConfirmReviewFaceSerializer, FaceImageSerializer, UnrecognizedFaceSerializer, ReviewFaceSerializer
+    ConfirmReviewFaceSerializer, FaceImageSerializer, UnrecognizedFaceSerializer, ReviewFaceSerializer, MarkAttendanceVideoSerializer
 )
 from attendance.models import AttendanceRecord as CentralAttendanceRecord
 from insightface.app import FaceAnalysis
@@ -353,3 +353,172 @@ class ConfirmReviewFaceView(GenericAPIView):
 
             return Response({"error": "Invalid action."}, status=400)
         return Response(serializer.errors, status=400)
+
+import logging
+import traceback
+import os
+
+logger = logging.getLogger(__name__)
+
+class MarkAttendanceVideoView(GenericAPIView):
+    permission_classes = [IsAuthenticated, TeacherOrAdminPermission]
+    serializer_class = MarkAttendanceVideoSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            video_file = serializer.validated_data['video']
+            status_input = serializer.validated_data['status']
+            today = date.today()
+            recognized_student_ids = set()
+
+            try:
+                # Log video file details
+                logger.info(f"Received video: name={video_file.name}, size={video_file.size} bytes")
+
+                # Save video file temporarily to disk
+                temp_video_path = f"/tmp/{uuid.uuid4()}.mp4"
+                logger.info(f"Saving video to: {temp_video_path}")
+                with open(temp_video_path, 'wb') as f:
+                    for chunk in video_file.chunks():
+                        f.write(chunk)
+
+                # Verify file was written
+                if not os.path.exists(temp_video_path):
+                    logger.error(f"Temporary video file not created: {temp_video_path}")
+                    return Response({"error": "Failed to save video file."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                # Open video with OpenCV
+                logger.info("Opening video with cv2.VideoCapture")
+                cap = cv2.VideoCapture(temp_video_path)
+                if not cap.isOpened():
+                    logger.error(f"Failed to open video file: {temp_video_path}")
+                    cap.release()
+                    os.remove(temp_video_path)
+                    return Response({"error": "Unable to open video file."}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Get video properties
+                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                logger.info(f"Video properties: frame_count={frame_count}, fps={fps}")
+
+                if frame_count <= 0 or fps <= 0:
+                    logger.error("Invalid video: zero frames or invalid FPS")
+                    cap.release()
+                    os.remove(temp_video_path)
+                    return Response({"error": "Invalid video: zero frames or invalid FPS."}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Calculate frame indices to extract (5 frames evenly spaced)
+                num_frames_to_extract = 5
+                if frame_count < num_frames_to_extract:
+                    logger.error(f"Video has too few frames: {frame_count}")
+                    cap.release()
+                    os.remove(temp_video_path)
+                    return Response({"error": "Video has too few frames."}, status=status.HTTP_400_BAD_REQUEST)
+
+                step = frame_count // num_frames_to_extract
+                frame_indices = [i * step for i in range(num_frames_to_extract)]
+                logger.info(f"Extracting frames at indices: {frame_indices}")
+
+                # Process each selected frame
+                for idx in frame_indices:
+                    logger.info(f"Processing frame {idx}")
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+                    ret, frame = cap.read()
+                    if not ret:
+                        logger.warning(f"Failed to read frame {idx}")
+                        continue
+
+                    # Convert frame to PIL Image for processing
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    pil_image = Image.fromarray(frame_rgb)
+
+                    # Detect faces in the frame
+                    logger.info(f"Detecting faces in frame {idx}")
+                    faces = app.get(frame)
+                    logger.info(f"Found {len(faces)} faces in frame {idx}")
+                    for face in faces:
+                        embedding = face.normed_embedding.tolist()
+                        bbox = face.bbox.astype(int)
+                        h, w = frame.shape[:2]
+                        left = max(0, bbox[0])
+                        top = max(0, bbox[1])
+                        right = min(w, bbox[2])
+                        bottom = min(h, bbox[3])
+                        if right <= left or bottom <= top:
+                            logger.warning(f"Invalid bounding box for face in frame {idx}")
+                            continue
+
+                        # Crop face
+                        cropped = frame[top:bottom, left:right]
+                        cropped_pil = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
+
+                        # Find best match
+                        students = StudentProfile.objects.filter(face_embedding__isnull=False)
+                        best_match = None
+                        highest_similarity = 0
+                        for student in students:
+                            avg_embedding = student.face_embedding.avg_embedding
+                            if avg_embedding:
+                                similarity = cosine_similarity([embedding], [avg_embedding])[0][0]
+                                if similarity > highest_similarity:
+                                    highest_similarity = similarity
+                                    best_match = student
+
+                        # Process based on similarity
+                        if best_match and highest_similarity >= SIMILARITY_THRESHOLD:
+                            recognized_student_ids.add(best_match.id)
+                            if highest_similarity >= HIGH_CONFIDENCE_THRESHOLD:
+                                update_embedding_with_new_face(best_match, embedding)
+                            else:
+                                filename = f'review_{uuid.uuid4()}.jpg'
+                                image_file_review = save_pil_image_to_file(cropped_pil, filename)
+                                ReviewFace.objects.create(
+                                    suggested_student=best_match,
+                                    image=image_file_review,
+                                    embedding=embedding,
+                                    similarity=highest_similarity
+                                )
+                        else:
+                            filename = f'unrecognized_{uuid.uuid4()}.jpg'
+                            image_file_unrec = save_pil_image_to_file(cropped_pil, filename)
+                            UnrecognizedFace.objects.create(
+                                image=image_file_unrec,
+                                embedding=embedding
+                            )
+
+                # Release video capture and clean up
+                cap.release()
+                if os.path.exists(temp_video_path):
+                    os.remove(temp_video_path)
+                    logger.info(f"Cleaned up temporary file: {temp_video_path}")
+
+                # Mark attendance for recognized students
+                for student_id in recognized_student_ids:
+                    student = StudentProfile.objects.get(id=student_id)
+                    CentralAttendanceRecord.objects.get_or_create(
+                        student=student,
+                        date=today,
+                        defaults={
+                            'status': 'present' if status_input == 'onTime' else 'late',
+                            'recorded_by': None,
+                            'note': 'Marked via facial recognition (video)'
+                        }
+                    )
+
+                logger.info(f"Attendance marked for {len(recognized_student_ids)} students")
+                return Response({
+                    "message": f"Attendance marked for {len(recognized_student_ids)} students from video.",
+                    "recognized_students": list(recognized_student_ids),
+                    "status": status_input
+                }, status=status.HTTP_200_OK)
+
+            except Exception as e:
+                logger.error(f"Error processing video: {str(e)}\n{traceback.format_exc()}")
+                if 'cap' in locals():
+                    cap.release()
+                if 'temp_video_path' in locals() and os.path.exists(temp_video_path):
+                    os.remove(temp_video_path)
+                return Response({"error": f"Error processing video: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

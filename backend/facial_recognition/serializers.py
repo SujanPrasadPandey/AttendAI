@@ -43,3 +43,7 @@ class ReviewFaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReviewFace
         fields = ['id', 'image', 'similarity', 'timestamp', 'suggested_student', 'suggested_student_name', 'confirmed_student', 'confirmed_student_name', 'discarded']
+
+class MarkAttendanceVideoSerializer(serializers.Serializer):
+    video = serializers.FileField()
+    status = serializers.ChoiceField(choices=['onTime', 'late'], default='onTime')

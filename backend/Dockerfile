@@ -6,17 +6,18 @@ WORKDIR /app/backend
 
 COPY requirements.txt .
 
-# Install build dependencies using apt-get
-# RUN apt-get update && \
-#     apt-get install -y gcc libpq-dev && \
-#     rm -rf /var/lib/apt/lists/*
-
+# Install build dependencies and libraries for OpenCV and FFmpeg
 RUN apt-get update && \
-    apt-get install -y gcc libpq-dev graphviz && \
+    apt-get install -y \
+    gcc \
+    libpq-dev \
+    graphviz \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
-
-# RUN pip install --upgrade pip
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

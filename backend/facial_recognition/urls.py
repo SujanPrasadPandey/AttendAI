@@ -8,6 +8,7 @@ from .views import (
     AssignUnrecognizedFaceView,
     ReviewFaceListView,
     ConfirmReviewFaceView,
+    MarkAttendanceVideoView,
 )
 
 urlpatterns = [
@@ -19,4 +20,5 @@ urlpatterns = [
     path('unrecognized/assign/', AssignUnrecognizedFaceView.as_view(), name='assign-unrecognized-face'),
     path('review/list/', ReviewFaceListView.as_view(), name='review-face-list'),
     path('review/confirm/', ConfirmReviewFaceView.as_view(), name='confirm-review-face'),
+    path('mark/video/', MarkAttendanceVideoView.as_view(), name='mark-attendance-video'),
 ]
