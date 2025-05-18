@@ -1,9 +1,12 @@
+// src/pages/common/ProfileSettings.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ProfilePictureUpload from "./profileSettings/ProfilePictureUpload";
 import ProfileInfoForm from "./profileSettings/ProfileInfoForm";
 import EmailSection from "./profileSettings/EmailSection";
 import PasswordChangeForm from "./profileSettings/PasswordChangeForm";
+import { useAuth } from "../../contexts/AuthContext"; // Import useAuth
+import apiClient from "../../utils/api"; // Import apiClient
 
 interface UserProfile {
   id: number;
@@ -18,132 +21,104 @@ interface UserProfile {
 
 const ProfileSettings: React.FC = () => {
   const navigate = useNavigate();
-  const access_token = localStorage.getItem("access_token");
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-  const [profile, setProfile] = useState<UserProfile>({
-    id: 0,
-    username: "",
-    email: "",
-    first_name: "",
-    last_name: "",
-    phone_number: "",
-    profile_picture: "",
-    email_verified: false,
-  });
+  const { user, isLoading, setUser } = useAuth(); // Get user and isLoading from AuthContext
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [message, setMessage] = useState<string>("");
 
+  // Redirect to signin if no user or token
   useEffect(() => {
-    if (!access_token) {
+    if (!isLoading && !user) {
       navigate("/signin");
     }
-  }, [access_token, navigate]);
+  }, [user, isLoading, navigate]);
+
+  // Sync profile state with AuthContext user
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone_number: user.phone_number,
+        profile_picture: user.profile_picture,
+        email_verified: user.email_verified,
+      });
+    }
+  }, [user]);
 
   const refreshProfile = async () => {
     try {
-      const response = await fetch(`${backendUrl}/api/users/me/`, {
-        headers: { Authorization: `Bearer ${access_token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-      } else {
-        setMessage("Failed to load profile.");
-      }
-    } catch (error) {
-      setMessage("Network error while fetching profile.");
+      const response = await apiClient.get("/api/users/me/");
+      setUser(response.data); // Update AuthContext
+      setMessage("Profile loaded successfully.");
+    } catch (error: any) {
+      setMessage(error.response?.data?.detail || "Failed to load profile.");
     }
   };
-
-  useEffect(() => {
-    if (access_token) {
-      refreshProfile();
-    }
-  }, [access_token]);
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("username");
+    setUser(null); // Clear user in AuthContext
     navigate("/signin");
   };
 
   const handleProfileInfoSave = async () => {
+    if (!profile) return;
     const payload = {
       first_name: profile.first_name,
       last_name: profile.last_name,
       phone_number: profile.phone_number,
     };
     try {
-      const response = await fetch(`${backendUrl}/api/users/me/`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${access_token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (response.ok) {
-        setMessage("Profile updated successfully.");
-      } else {
-        setMessage("Failed to update profile.");
-      }
-    } catch (error) {
-      setMessage("Network error while updating profile.");
+      const response = await apiClient.put("/api/users/me/", payload);
+      setUser(response.data); // Update AuthContext
+      setMessage("Profile updated successfully.");
+    } catch (error: any) {
+      setMessage(error.response?.data?.detail || "Failed to update profile.");
     }
   };
 
   const handleProfileInfoChange = (field: string, value: string) => {
-    setProfile((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setProfile((prev) =>
+      prev ? { ...prev, [field]: value } : prev
+    );
   };
 
   const handleEmailChange = (value: string) => {
-    setProfile((prev) => ({
-      ...prev,
-      email: value,
-    }));
+    setProfile((prev) =>
+      prev ? { ...prev, email: value } : prev
+    );
   };
 
   const handleEmailUpdate = async () => {
+    if (!profile) return;
     const payload = { email: profile.email };
     try {
-      const response = await fetch(`${backendUrl}/api/users/update-email/`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${access_token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (response.ok) {
-        setMessage("Email updated successfully.");
-        refreshProfile();
-      } else {
-        setMessage("Failed to update email.");
-      }
-    } catch (error) {
-      setMessage("Network error while updating email.");
+      const response = await apiClient.put("/api/users/update-email/", payload);
+      setUser({ ...user!, email: response.data.email }); // Update email in AuthContext
+      setMessage("Email updated successfully.");
+      await refreshProfile(); // Refresh profile to sync data
+    } catch (error: any) {
+      setMessage(error.response?.data?.detail || "Failed to update email.");
     }
   };
 
   const handleVerifyEmail = async () => {
     try {
-      const response = await fetch(`${backendUrl}/api/users/resend-verification-email/`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${access_token}` },
-      });
-      if (response.ok) {
-        setMessage("Verification email sent.");
-      } else {
-        setMessage("Failed to send verification email.");
-      }
-    } catch (error) {
-      setMessage("Network error while sending verification email.");
+      await apiClient.get("/api/users/resend-verification-email/");
+      setMessage("Verification email sent.");
+    } catch (error: any) {
+      setMessage(error.response?.data?.detail || "Failed to send verification email.");
     }
   };
+
+  if (isLoading || !profile) {
+    return <div className="p-6 text-gray-100">Loading...</div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-6 text-gray-100">
@@ -162,8 +137,8 @@ const ProfileSettings: React.FC = () => {
         <ProfilePictureUpload
           profilePicture={profile.profile_picture}
           onUploadSuccess={refreshProfile}
-          accessToken={access_token || ""}
-          backendUrl={backendUrl}
+          accessToken={localStorage.getItem("access_token") || ""}
+          backendUrl={import.meta.env.VITE_API_URL} // Use same env var as api.ts
           setMessage={setMessage}
         />
         <div className="ml-4 flex-1">
@@ -198,8 +173,8 @@ const ProfileSettings: React.FC = () => {
       />
 
       <PasswordChangeForm
-        accessToken={access_token || ""}
-        backendUrl={backendUrl}
+        accessToken={localStorage.getItem("access_token") || ""}
+        backendUrl={import.meta.env.VITE_API_URL} // Use same env var as api.ts
         setMessage={setMessage}
       />
     </div>
