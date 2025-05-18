@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import apiClient from '../../utils/api'; // Adjust path to your API utility
+import apiClient from '../../utils/api';
 import NavbarLandingPage from '../../components/landingPage/NavbarLandingPage';
 import { FaUser, FaLock } from 'react-icons/fa';
+import { useAuth } from '../../contexts/AuthContext'; // Import useAuth
 
 interface DecodedToken {
   exp: number;
@@ -16,6 +17,7 @@ const SignIn: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { setUser } = useAuth(); // Get setUser from AuthContext
 
   // Check for existing valid token on mount
   useEffect(() => {
@@ -28,7 +30,24 @@ const SignIn: React.FC = () => {
         const currentTime = Date.now() / 1000;
 
         if (decoded.exp > currentTime) {
-          navigate('/dashboard', { state: { username: storedUsername } });
+          // Fetch user role to redirect appropriately
+          apiClient.get('/api/users/me/').then((userResponse) => {
+            const user = userResponse.data;
+            setUser(user); // Update AuthContext
+            switch (user.role) {
+              case 'admin':
+                navigate('/admin', { replace: true });
+                break;
+              case 'teacher':
+                navigate('/teacher', { replace: true });
+                break;
+              case 'student':
+                navigate('/student', { replace: true });
+                break;
+              default:
+                navigate('/dashboard', { state: { username: storedUsername }, replace: true });
+            }
+          });
         }
       } catch (error) {
         localStorage.removeItem('access_token');
@@ -36,7 +55,7 @@ const SignIn: React.FC = () => {
         localStorage.removeItem('username');
       }
     }
-  }, [navigate]);
+  }, [navigate, setUser]);
 
   const handleSignIn = async () => {
     if (username.trim() === '') {
@@ -60,15 +79,27 @@ const SignIn: React.FC = () => {
         localStorage.setItem('refresh_token', response.data.refresh);
         localStorage.setItem('username', username);
 
-        // Fetch user role
+        // Fetch user data
         const userResponse = await apiClient.get('/api/users/me/');
-        const role = userResponse.data.role;
+        const user = userResponse.data;
+        setUser(user); // Update AuthContext with user data
 
         // Redirect based on role
-        if (role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard', { state: { username } });
+        switch (user.role) {
+          case 'admin':
+            navigate('/admin', { replace: true });
+            break;
+          case 'teacher':
+            navigate('/teacher', { replace: true });
+            break;
+          case 'student':
+            navigate('/student', { replace: true });
+            break;
+          case 'parent':
+            navigate('/dashboard', { state: { username }, replace: true }); // Or a parent-specific route
+            break;
+          default:
+            navigate('/dashboard', { state: { username }, replace: true });
         }
       }
     } catch (err: any) {
